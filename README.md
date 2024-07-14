@@ -2,6 +2,8 @@
 <img src="./docs/logo.png" width="300" height="auto">
 </div>
 
+A visualization demo can be seen here: [https://cbg-ethz.github.io/oncotreeVIS](https://cbg-ethz.github.io/oncotreeVIS/)
+
 # oncotreeVIS – An interactive graphical user interface  for visualising mutation tree cohorts
 
 
