@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="css/style.css">
+<link rel="stylesheet" type="text/css" href="css/zoom.css">
+<link rel="stylesheet" href="dependencies/font-awesome.min.css">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css" integrity="sha384-gfdkjb5BdAXd+lj+gudLWI+BXq4IuLW5IT+brZEZsLFm++aCMlF1V92rMkPaX4PP" crossorigin="anonymous">
+
+<!-- Load the javascript libraries -->    
+<script src="dependencies/jquery.min.js"></script>
+<script src="dependencies/bootstrap.min.js"></script>	
+<script src="dependencies/d3.v4.min.js"></script>
+<script src="dependencies/d3-selection-multi.v1.js"></script>
+<script src="dependencies/tinycolor.js"></script>
+<script src="utils.js"></script>
+<script src="display_cn_tree.js"></script>
+<script src="display_tree_matching.js"></script>
+<script src="dgidb_query_response.js"></script>
+
+</head>
+
+<body style="margin-top: 5px; margin-left: 5px; margin-right: 5px;">
+
+<div style="display: flex">
+  <div style="background-color: #b4a7d6; flex-grow: 1; height: 60px"></div>
+  <div style="width: 300px; height: 60px; background: radial-gradient(#ffffff 0%, #b4a7d6); text-align: center; ">
+    <p id="logo" style="font-family:calibri; font-size:40px; letter-spacing: 0.5px;"><b>&nbsp; oncotreeVIS &nbsp;</b></p>
+  </div>
+</div><br/>
+
+<div width="100%" style="font-size: 13px">
+  Choose tree cohort: <select id="drop-down-cohort"></select>
+</div>
+<br/>
+
+<div width=100% style="display:inline">
+  <div style="border: 0px solid lightgray; border-radius: 8px; padding:5px; background-color:white; float:left; disply:inline;">
+    <button class="button-15" onclick="display_all_trees()"><i class="fa fa-tree" style="font-size:19px"></i>&nbsp;TREE VIEW</button>&nbsp;
+    <a class="zoom"><i class="fas fa-search-plus" style="font-size:19px; cursor: pointer;"></i></a>&nbsp;
+    <a class="zoom-out"><i class="fas fa-search-minus" style="font-size:19px; cursor: pointer;"></i></a>&nbsp;
+    <a class="zoom-init"><i class="fas fa-expand-arrows-alt" style="font-size:19px; cursor: pointer;"></i></a>&nbsp;
+    <div class='info-tooltip'>
+      <a class="shuffle_trees" id="shuffle_icon"><i class="fas fa-sort-alpha-down" style="font-size:19px; cursor: pointer;"></i></a>
+    </div>
+  </div>&nbsp;
+
+  <div style="border: 0px solid lightgray; border-radius: 8px; padding:5px; background-color:white; float:left; disply:inline;"> 
+    <button class="button-15" onclick="heatmap_view()"><i style="font-size:19px" class="fa fa-th-large"></i> HEATMAP VIEW</button> 
+  </div>
+</div><br/>
+
+<div style="position: relative;">
+  <div id="tree_cohort" style="border: 0px solid lightgray; border-radius: 8px; 
+    float:left; position: relative; width:73%; min-width:700px; padding-top: 3px; padding-right: 3px; 
+    padding-left: 3px;"></div>
+
+  <div id="tree_info" style="border: 0px solid lightgray; border-radius: 8px; font-size: 13px; position: fixed; top: 0; bottom:0; 
+    width:24%; padding: 7px; float:right;  left: calc(73% + 2px);
+    overflow-x:scroll; overflow-y:scroll;"></div>
+</div>
+
+<script>
+
+// Global variables.
+var tree_cohort_div_id = "tree_cohort"
+var tree_info_div_id = "tree_info"
+var expand_metadata = true
+var expand_dgi = true
+var tree_sort_button_state = -1
+var node_matching_view = 0
+var sample_metadata_colors = {}
+var table_color_codes = null
+var cluster_node_intersection = {}
+var sample_list = []
+var clusters = []
+
+// DGIdb data.
+var gene_drug_map = parseGeneDrugInteractions(gene_drug_interaction)
+
+// Action functions for zoom.
+var zoom = 1;             
+$('.zoom').on('click', function(){
+  //if(zoom < 1){
+    zoom += 0.1;
+  //}
+  document.getElementById(tree_cohort_div_id).style.zoom = zoom
+});
+
+$('.zoom-init').on('click', function(){
+  zoom = 1;
+  document.getElementById(tree_cohort_div_id).style.zoom = zoom
+});
+
+$('.zoom-out').on('click', function(){
+  zoom -= 0.1;
+  document.getElementById(tree_cohort_div_id).style.zoom = zoom
+});
+
+$('.shuffle_trees').on('click', function(){
+  if (tree_sort_button_state == -1 || tree_sort_button_state == 0) {
+    tree_sort_button_state = 1
+    document.getElementById("shuffle_icon").innerHTML = '<i class="fa fa-random"></i>'
+  }
+  else if (tree_sort_button_state == 1){
+    tree_sort_button_state = 2
+    document.getElementById("shuffle_icon").innerHTML = '<i class="fa fa-refresh"></i>'
+  }
+  else if (tree_sort_button_state == 2){
+    tree_sort_button_state = 0
+    document.getElementById("shuffle_icon").innerHTML = '<i class="fas fa-sort-alpha-down"></i>'
+  }
+  display_all_trees(tree_sort_state = tree_sort_button_state)
+})
+
+$('.show-matching-nodes').on('click', function(){
+  if (node_matching_view == 0) {
+    node_matching_view = 1
+    document.getElementById("node_matching_icon").innerHTML = '<i class="far fa-circle"></i>'
+  }       
+  else if (node_matching_view == 1){
+    node_matching_view = 0
+    document.getElementById("node_matching_icon").innerHTML = '<i class="fas fa-circle"></i>'
+  }     
+  //display_all_trees(tree_sort_state=tree_sort_button_state, node_matching_view=node_matching_view)
+})
+
+$('.cohort-view').on('click', function(){
+  display_all_trees()
+});
+
+function heatmap_view() {
+
+  document.getElementById(tree_cohort_div_id).innerHTML = ""
+  document.getElementById(tree_info_div_id).innerHTML = ""
+  zoom = 1
+  document.getElementById(tree_cohort_div_id).style.zoom = zoom
+
+  var tooltip = d3.select("div#" + tree_cohort_div_id)
+    .append("div")
+    .style("opacity", 0)
+    .attr("class", "tooltip")
+    .style("background-color", "white")
+    .style("border", "solid")
+    .style("border-width", "2px")
+    .style("border-radius", "5px")
+    .style("padding", "3px")
+    .style("visibility", "hidden")
+    .style("display", "none")
+
+  var margin = {top: 30, right: 80, bottom: 80, left: 50},
+    width = 600 - margin.left - margin.right,
+    height = 600 - margin.top - margin.bottom;
+
+  var svg = d3.select("#" + tree_cohort_div_id)
+    .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  // Build X scales and axis.
+  var x = d3.scaleBand()
+    .range([0, width])
+    .domain(sample_list)
+    .padding(0)
+  svg.append("g")
+    .attr("transform", "translate(0," + height + ")")
+    .call(d3.axisBottom(x))
+    .selectAll("text")
+      .attr("transform", "translate(-10,10)rotate(-90)")
+      .style("text-anchor", "end")
+      .style("font-size", 6)
+
+  // Build Y scales and axis/
+  var y = d3.scaleBand()
+    .range([0, height])
+    .domain(sample_list)
+    .padding(0);
+  svg.append("g")
+    .call(d3.axisLeft(y))
+    .selectAll("text")
+      .style("font-size", 6)
+
+  vmin = 1
+  vmax = 0
+  matrix.forEach(function(item) {
+    if (item.distance > vmax) {
+      vmax = item.distance
+    }
+    if (item.distance < vmin) {
+      vmin = item.distance
+    }
+  })
+   
+  // Build color scale
+  legend_colors = ['#073B6F', '#0b559f', '#2b7bba', '#539ecd', '#89bedc', '#bad6eb', '#dbe9f6'] // Seaborn Blues
+  var myColor = d3.scaleLinear()
+    .range(legend_colors)
+    .domain(linspace(vmin,vmax, 7))
+
+  svg.selectAll()
+    .data(matrix) 
+    .enter()
+    .append("rect")
+      .attr("x", function(d) { return x(d.sample_1) })
+      .attr("y", function(d) { return y(d.sample_2) })
+      .attr("width", x.bandwidth() )
+      .attr("height", y.bandwidth() )
+      .style("fill", function(d) { return myColor(d.distance)} )
+    .on('mousemove', function(d) {
+      tooltip
+        .html("&nbsp;Distance b/w " + d.sample_1 + " & " + d.sample_2 + ": " + Math.round(d.distance * 100) / 100 + "&nbsp;") 
+        .style("left", (d3.mouse(this)[0]) + "px")
+        .style("top", (d3.mouse(this)[1] + 50) + "px")
+        .style("visibility", "visible")
+        .style("display", "block")
+        .style("position", "absolute")
+        .style("z-index" ,10)
+        .style("font-size", "10px") 
+    })
+    .on('mouseover', function(d) {
+      tooltip.style("opacity", 1)
+    })
+    .on('mouseleave', function() {
+      tooltip.style("opacity", 0)
+        .style("visibility", "hidden")
+        .style("display", "none") 
+    })
+
+  cluster_starts = {}
+  for(i=0; i<clusters.length; i++) {
+    cluster_starts[clusters[i][0]] = clusters[i].length
+  }
+
+  svg.selectAll()
+    .data(matrix)
+    .enter()
+    .append("rect")
+      .attr("x", function(d) {
+        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1] > 1) {
+          return x(d.sample_1)
+        }
+      })
+      .attr("y", function(d) {
+        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1] > 1) {
+          return y(d.sample_1)
+        }
+      })
+      .attr("width", function(d) {
+        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1] > 1) {
+          return  cluster_starts[d.sample_1] * x.bandwidth()
+        }
+      })
+      .attr("height", function(d) {
+        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1] > 1) {
+          return  cluster_starts[d.sample_1] * x.bandwidth()
+        }
+      })
+      .style("fill", "none")
+      .style("stroke", "#0b559f")
+      .style("stroke-width", "3")
+
+  // Color legend
+  var grad = svg.append('defs')
+    .append('linearGradient')
+    .attr('id', 'grad')
+    .attr('x1', '0%')
+    .attr('x2', '0%')
+    .attr('y1', '0%')
+    .attr('y2', '100%');
+
+  grad.selectAll('stop')
+    .data(legend_colors)
+    .enter()
+    .append('stop')
+    .style('stop-color', function(d){ return d; })
+    .attr('offset', function(d,i){
+      return 100 * (i / (legend_colors.length - 1)) + '%';
+    })
+
+  svg.append('rect')
+    .attr('x', width + 10)
+    .attr('y', 0)
+    .attr('width', 25)
+    .attr('height', 150)
+    .style('fill', 'url(#grad)');
+  
+  svg.append("text")
+    .attr("id", "rectangleText")
+    .attr("class", "visible")
+    .attr("x", width + 12)
+    .attr("y", -5) 
+    .attr("width",100)
+    .style("font-size", "10px")
+    .text("max");
+
+  svg.append("text")
+    .attr("id", "rectangleText")
+    .attr("class", "visible")
+    .attr("x", width + 13)
+    .attr("y", 163) 
+    .attr("width",100)
+    .style("font-size", "10px")
+    .text("min");
+
+  svg.append("text")
+    .attr("id", "rectangleText")
+    .attr("class", "visible")
+    .attr("x", -37)
+    .attr("y", width + 36)
+    .attr("transform", "translate(-10, 10) rotate(-90)")
+    //.attr("x", 100)
+    //.attr("y", -width-40)
+    //.attr("transform", "translate(0,0) rotate(90)")
+    .style("text-anchor", "end")
+    .attr("width",100)
+    .style("font-size", "15px")
+    .attr("fill", "white")
+    .text("similarity");
+
+}
+
+datasets = {"123 AML mutation trees (Morita et al. 2020)": "data/aml_morita/trees_aml_morita.json"} 
+
+var drop_down_cohorts = document.getElementById("drop-down-cohort");
+drop_down_list = Object.keys(datasets)
+for (idx = 0; idx < drop_down_list.length; idx++) {
+  drop_down_cohorts.options[drop_down_cohorts.options.length] = new Option(drop_down_list[idx], idx);
+}
+$('#drop-down-cohort').change(function(){
+  display_all_trees()
+});
+
+function addGeneToGeneList(html_element, gene_list, category){
+  optgroup = document.createElement('optgroup')
+  optgroup.label = category
+  for(var gene of gene_list){
+    option = document.createElement('option');
+    option.textContent = gene;
+    optgroup.appendChild(option);
+  }
+  html_element.appendChild(optgroup);
+}
+
+function updateTree(event) {
+  var tree_div_id = event.data.tree_div_id
+  var tree_object = event.data.tree_object
+  var gene_dropdown_id = event.data.gene_dropdown_id
+  var drug_dropdown_id = event.data.drug_dropdown_id
+  var dgi_div_id = event.data.dgi_div_id
+  var gene_drug_map = event.data.gene_drug_map
+  var drug_gene_map = event.data.drug_gene_map
+
+  var gene_dropdown = document.getElementById(gene_dropdown_id)
+  var target_gene = gene_dropdown.options[gene_dropdown.selectedIndex].text
+  target_gene_cell_percent = getCellCountForGene(tree_object, target_gene)
+
+  var drug_dropdown = document.getElementById(drug_dropdown_id)
+  var target_drug = drug_dropdown.options[drug_dropdown.selectedIndex].text
+  target_drug_cell_percent = getCellCountForDrugInteraction(tree_object, target_drug, drug_gene_map) 
+  
+  var drug_dropdown = document.getElementById(drug_dropdown_id)
+  var target_drug = drug_dropdown.options[drug_dropdown.selectedIndex].text
+
+  display_cn_tree(tree_div_id, "", tree_object, target_gene, target_drug, drug_gene_map) 
+  
+  cell_count_div_id = "cell_count_div"
+  remove_element = document.getElementById(cell_count_div_id)
+  if (typeof(remove_element) != 'undefined' && remove_element != null) {
+    remove_element.remove();
+  }
+  var cell_count_div = document.createElement("div")
+  cell_count_div.setAttribute("id", cell_count_div_id)
+  cell_count_div.style.textAlign = "center"
+  if (target_gene_cell_percent != 0) {
+    cell_count_div.innerHTML += "<br/><i>%cells affected by target gene: " + Math.round(target_gene_cell_percent*100) + "%</i>"
+  }
+  if (target_drug_cell_percent != 0) {
+    cell_count_div.innerHTML += "<br/><i>%cells affected by target drug: " + Math.round(target_drug_cell_percent*100) + "%</i>"
+  }
+  document.getElementById(tree_div_id).append(cell_count_div)
+
+  html_string = populateGeneDrugInfoHTML(target_gene, gene_drug_map) 
+  document.getElementById(dgi_div_id).innerHTML = html_string
+} 
+
+function showClusterInfo(event) {
+
+  cluster_bg_color = event.currentTarget.cluster_bg_color
+  if (cluster_bg_color == "#FFFFFF" || cluster_bg_color == "white") {
+    cluster_bg_color = "#e6e2d3"
+  }
+
+  cluster_metadata = {}
+  samples = event.currentTarget.samples
+  for (let j = 0; j < samples.length; j++) {
+    sample = samples[j]
+    cluster_metadata[sample] = sample_metadata_colors[sample]
+  }
+ 
+  document = event.currentTarget.document 
+  table = display_metadata(document, cluster_metadata)
+  tree_info_div_id = event.currentTarget.tree_info_div_id
+  var tree_info_div = document.getElementById(tree_info_div_id)
+  tree_info_div.style.backgroundColor = cluster_bg_color
+  tree_info_div.innerHTML = "<strong style='background-color:#e6e2d3; display:block;'>&nbsp;Cluster information<br/></strong>"
+
+  node_intersections = event.currentTarget.node_intersections 
+  tree_info_div.innerHTML += '<br/><b>Matching subclones:</b><br/>' 
+  tree_info_div.innerHTML += "<p style='margin:6px;'></p>"
+  tree_info_div.innerHTML += '<i class="fa fa-circle" style="font-size:18px;color:' + node_intersections["color"] + '"></i> &nbsp; matching genes: ' 
+      + node_intersections["gene_events"] + '</div><br/>'
+
+  tree_info_div.innerHTML += '<br/><b>Cluster metadata:</b><br/>'
+  var table_div = document.createElement("div")
+  table_div.appendChild(table_color_codes)
+  tree_info_div.appendChild(table_div)
+
+  tree_info_div.appendChild(document.createElement("br"))
+  tree_info_div.appendChild(document.createElement("br"))
+  tree_info_div.appendChild(table)
+}
+
+function getGeneCategories(tree_object) {
+  var node_hierarchy = d3.hierarchy(tree_object)
+  var treemap = d3.tree()
+  node_list = treemap(node_hierarchy).descendants()
+
+  gene_categories = {}
+  for (let i=0; i<node_list.length; i++) {
+    node = node_list[i]
+    if (node.data.gene_events){
+      gene_map = objectToMap(node.data.gene_events)
+      gene_map.forEach((events, gene) => {
+        events = objectToMap(events)
+        events.forEach((value, event) => {
+          label = event
+          if(event == "CNV") {
+            if (value > 0 || value == "+") {
+              label = "amplified"
+            }
+            else {
+              label = "deleted"
+            }
+          }
+          if(!(label in gene_categories)) {
+            gene_categories[label] = new Set()
+          }
+          gene_categories[label].add(gene)
+        })
+      })
+    }
+  }
+  return gene_categories
+}
+
+function getCellCountForGene(tree_object, target_gene) {
+  var node_hierarchy = d3.hierarchy(tree_object)
+  var treemap = d3.tree()
+  node_list = treemap(node_hierarchy).descendants()
+
+  cell_percentage = 0
+  for (let i=0; i<node_list.length; i++) {
+    node = node_list[i]
+    if (node.data.gene_events){
+      gene_map = objectToMap(node.data.gene_events)
+      if(gene_map.has(target_gene)) {
+        cell_percentage += node.data.size_percent 
+      }
+    }
+  }
+  return cell_percentage
+}
+
+function getCellCountForDrugInteraction(tree_object, target_drug, drug_gene_map) {
+  if(!(target_drug in drug_gene_map)) {
+    return 0
+  }
+
+  var node_hierarchy = d3.hierarchy(tree_object)
+  var treemap = d3.tree()
+  node_list = treemap(node_hierarchy).descendants()
+  gene_list = objectToMap(drug_gene_map).get(target_drug)
+ 
+  cell_percentage = 0
+  for (let i=0; i<node_list.length; i++) {
+    node = node_list[i]
+    if (node.data.gene_events){
+      for (var gene_1 of gene_list){
+        for (gene_2 in node.data.gene_events) {
+          if (gene_2.includes(gene_1)) {
+            cell_percentage += node.data.size_percent
+          }
+        }
+      }
+    }
+  }
+  return cell_percentage
+}
+         
+function populateTreeInfo(event) {
+  var tree_object = event.currentTarget.tree_object
+  var tree_info_div_id = event.currentTarget.tree_info_div_id
+  var tree_info_div = document.getElementById(tree_info_div_id)
+
+  // Tree information
+  var sample_name = event.currentTarget.sample_name
+  var metadata = event.currentTarget.metadata
+  var matching_trees_map = event.currentTarget.matching_trees_map
+
+  // Compute gene list and variables related to the selected target gene. 
+  var gene_categories = getGeneCategories(tree_object) 
+  var gene_list = Array.from(Object.values(gene_categories)[0])
+  var drug_gene_map = getDrugToGeneMap(gene_list, gene_drug_map)
+  var drug_list = findDrugsAffectingGeneList(gene_list, drug_gene_map, tree_object)
+  //drug_list.sort()
+
+  var node_hierarchy = d3.hierarchy(tree_object)
+  var treemap = d3.tree()
+  node_list = treemap(node_hierarchy).descendants()
+
+  tree_info_div.style.borderWidth = "1px"
+
+  // Display sample name. 
+  tree_info_div.innerHTML = '<strong style="background-color:#e6e2d3; display:block;">&nbsp;Selected sample: <b>' + sample_name + '</strong></b>'
+
+  // Gene selection.
+  tree_info_div.innerHTML += "<br/><b>Select target gene</b>&nbsp;"  
+      /*"<div class='info-tooltip'><i class='fa fa-question-circle' style='color:gray'></i>" +
+        //"<span class='info-tooltiptext'>Tooltip text</span>" +
+      "</div><br/>"*/ 
+  gene_selection_dropdown = document.createElement("select")
+  gene_selection_dropdown.setAttribute("id", "gene_selection")
+  gene_selection_dropdown.classList.add("gene_selection")
+
+  option = document.createElement('option');
+  option.textContent = ""
+  gene_selection_dropdown.appendChild(option);
+  keys = Object.keys(gene_categories).sort()
+  for (var i=0; i<keys.length; i++) {
+    event = keys[i]
+    array = gene_categories[event]
+    sorted_genes = Array.from(array).sort()
+    addGeneToGeneList(gene_selection_dropdown, sorted_genes, event)
+  }
+  tree_info_div.appendChild(gene_selection_dropdown)
+
+  // Drug selection.
+  tree_info_div.innerHTML += "<p style='margin:6px;'></p>"
+  tree_info_div.innerHTML += "<b>Select target drug</b>&nbsp;" 
+      /*"<div class='info-tooltip'><i class='fa fa-question-circle' style='color:gray'></i>" +
+        "<span class='info-tooltiptext'>Tooltip text</span>" +
+      "</div><br/>"*/  
+  drug_selection_dropdown = document.createElement("select")
+  drug_selection_dropdown.setAttribute("id", "drug_selection")
+  drug_selection_dropdown.classList.add("drug_selection")
+  option = document.createElement('option');
+  option.textContent = ""
+  drug_selection_dropdown.appendChild(option)
+  for (idx = 0; idx < drug_list.length; idx++) {
+    drug_short_name = drug_list[idx].substring(0,20)
+    if (drug_short_name.length < drug_list[idx].length) {
+      drug_short_name += "..."
+    }
+    drug_selection_dropdown.options[drug_selection_dropdown.options.length] = new Option(drug_short_name, idx);
+  }
+  tree_info_div.appendChild(drug_selection_dropdown)
+
+  // Display tree.
+  var tree_div = document.createElement("div")
+  tree_div.setAttribute("id", "tree_div")
+  tree_div.innerHTML = "<strong style='background-color:#e6e2d3; display:block;'>&nbsp;Interactive tree " +
+      /*"<div class='info-tooltip'><i class='fa fa-question-circle' style='color:gray'></i>" +
+        "<span class='info-tooltiptext'> The subclones affected by the select target gene are indicated by colors " + 
+            "(violet for mutation, red for copy-number amplification and blue for deletion). The subclones which have affected genes " +
+            "interacting with the target drug are indiated with green squares. </span>" +*/
+      "</div> &nbsp;" + 
+      "<a class='expand-tree'>" + 
+      "<i class='fa fa-caret-up fa-lg' style='color:#8A877E; cursor:pointer;'></i></a></strong>"
+  tree_info_div.innerHTML += "<p style='margin:12px;'></p>"
+  tree_info_div.appendChild(tree_div)
+  var target_gene = gene_selection_dropdown.options[gene_selection_dropdown.selectedIndex].text
+  var target_drug = drug_selection_dropdown.options[drug_selection_dropdown.selectedIndex].text
+  // Call display_cn_tree in the end of the function.
+
+  // Hidden tree.
+  var hidden_tree_div = document.createElement("div")
+  hidden_tree_div.setAttribute("id", "hidden_tree_div")
+  hidden_tree_div.innerHTML = "<strong style='background-color:#e6e2d3; display:block;'>&nbsp;Interactive tree " +
+      "<i class='fa fa-question-circle' style='color:gray'></i>&nbsp;&nbsp;<a class='hide-tree'>" + 
+      "<i class='fa fa-caret-down fa-lg' style='color:#8A877E; cursor:pointer'></i></a></strong>"
+  hidden_tree_div.style.display = 'none'
+  tree_info_div.appendChild(hidden_tree_div)
+
+  // Displayed metadata.
+  tree_info_div.innerHTML += "<br/>"
+  var display_metadata_div = document.createElement("div")
+  display_metadata_div.setAttribute("id", "display_metadata")
+  display_metadata_div.innerHTML += "<strong style='background-color:#e6e2d3; display:block;'>&nbsp;Clinical data " +
+      "<a class='expand-metadata'><i class='fa fa-caret-up fa-lg' style='color:#8A877E; cursor:pointer;'></i></a></strong>"
+  for (const [key, value] of Object.entries(metadata)) {
+    display_metadata_div.innerHTML += '<i><b>' + key + '</b>: ' + value + '</i></br>'
+  }
+  display_metadata_div.style.display = 'none'
+  tree_info_div.appendChild(display_metadata_div)
+
+  // Hidden metadata.
+  var hidden_metadata_div = document.createElement("div")
+  hidden_metadata_div.setAttribute("id", "hidden_metadata")
+  hidden_metadata_div.innerHTML += "<div id='hidden_metadata'><strong style='background-color:#e6e2d3; display:block;'>" +
+      "&nbsp;Clinical data <a class='expand-metadata'><i class='fa fa-caret-down fa-lg' style='color:#8A877E; cursor:pointer;'></i></a></strong></div>"
+  hidden_metadata_div.style.display = 'block'
+  tree_info_div.appendChild(hidden_metadata_div)
+
+  // Hidden gene-drug interactions.
+  var hidden_gdi_div = document.createElement("div")
+  hidden_gdi_div.setAttribute("id", "hidden_dgi")
+  hidden_gdi_div.innerHTML += "<br/><strong style='background-color:#e6e2d3; display:block;'>&nbsp;Top DGIdb drugs associated with target gene" + 
+      /*"&nbsp;<div class='info-tooltip'><i class='fa fa-question-circle' style='color:gray'></i>" +
+        "<span class='info-tooltiptext'>Tooltip text</span>" +
+      "</div>&nbsp;*/
+      "<a class='expand-dgi'>" + 
+      "<i class='fa fa-caret-down fa-lg' style='color:#8A877E; cursor:pointer;'></i></a></strong>"
+  tree_info_div.appendChild(hidden_gdi_div)
+
+  // Displayed gene-drug interactions.
+  var display_dgi_div = document.createElement("div")
+  display_dgi_div.setAttribute("id", "display_dgi")
+  display_dgi_div.innerHTML += "<br/><strong style='background-color:#e6e2d3; display:block;'>&nbsp;Top DGIdb drugs associated with " + 
+      "target gene <i class='fa fa-question-circle' style='color:gray'></i>&nbsp;&nbsp;<a class='expand-dgi'>" + 
+      "<i class='fa fa-caret-up fa-lg' style='color:#8A877E; cursor:pointer;'></i></a></strong>"
+  display_dgi_div.style.display = 'none'
+  var dgi_info_div = document.createElement("div")
+  dgi_info_div.setAttribute("id", "dgi_info")
+  dgi_info_div.innerHTML = populateGeneDrugInfoHTML(target_gene, gene_drug_map)
+  display_dgi_div.appendChild(dgi_info_div)
+  tree_info_div.appendChild(display_dgi_div)
+
+  // Hidden kNN.
+  var hidden_knn_div = document.createElement("div")
+  hidden_knn_div.setAttribute("id", "hidden_knn")
+  hidden_knn_div.innerHTML += "<br/><strong style='background-color:#e6e2d3; display:block;'>&nbsp;K-nearest tree neighbors &nbsp;" +
+      /*"<div class='info-tooltip'><i class='fa fa-question-circle' style='color:gray'></i>" +
+        "<span class='info-tooltiptext'>Tooltip text</span>" +
+      "</div>&nbsp;*/
+      "<a class='expand-knn'>" + 
+      "<i class='fa fa-caret-down fa-lg' style='color:#8A877E; cursor:pointer;'></i></a></strong>"
+  tree_info_div.appendChild(hidden_knn_div)
+    
+  // Displayed kNN.
+  var display_knn_div = document.createElement("div")
+  display_knn_div.setAttribute("id", "display_knn")
+  display_knn_div.innerHTML += "<br/><strong style='background-color:#e6e2d3; display:block;'>&nbsp;K-nearest tree neighbors " +
+      //"<i class='fa fa-question-circle' style='color:gray'></i>&nbsp;&nbsp;" +
+      "<a class='hide-knn'>" +
+      "<i class='fa fa-caret-up fa-lg' style='color:#8A877E; cursor:pointer;'></i></a></strong>"
+  display_knn_div.style.display = 'none'
+  var knn_info_div = document.createElement("div")
+  knn_info_div.setAttribute("id", "knn_info")
+  tree_info_div.appendChild(display_knn_div)
+  display_knn_div.appendChild(knn_info_div)
+
+  matching_trees_map.forEach((data, id) => {
+      if (id.startsWith(sample_name)) {
+        async_display_tree_matching("knn_info", data)
+      }
+    })
+
+  // Add event listeners after the DOM is complete. 
+  $('.gene_selection, .drug_selection').on('change', 
+    {tree_div_id: "tree_div",
+     tree_object: tree_object,
+     gene_dropdown_id: 'gene_selection',
+     drug_dropdown_id: 'drug_selection',
+     dgi_div_id: 'dgi_info',
+     gene_drug_map: gene_drug_map,
+     drug_gene_map: drug_gene_map}, 
+    updateTree)
+
+  $('.expand-tree').on('click', function(){
+    document.getElementById("tree_div").style.display = 'none'
+    document.getElementById("hidden_tree_div").style.display = 'block'
+  });
+
+  $('.hide-tree').on('click', function(){
+    document.getElementById("tree_div").style.display = 'block'
+    document.getElementById("hidden_tree_div").style.display = 'none'
+  });
+ 
+  $('.expand-metadata').on('click', function(){
+    if (expand_metadata) {
+      document.getElementById("hidden_metadata").style.display = 'none'
+      document.getElementById("display_metadata").style.display = 'block'
+      expand_metadata = false
+    }
+    else {
+      document.getElementById("hidden_metadata").style.display = 'block'
+      document.getElementById("display_metadata").style.display = 'none'
+      expand_metadata = true      
+    }
+  });     
+
+  $('.expand-dgi').on('click', function(){
+    if (expand_dgi) {
+      document.getElementById("hidden_dgi").style.display = 'none'
+      document.getElementById("display_dgi").style.display = 'block'
+      expand_dgi = false
+    }
+    else {
+      document.getElementById("hidden_dgi").style.display = 'block'
+      document.getElementById("display_dgi").style.display = 'none'
+      expand_dgi = true   
+    }
+  });
+
+  $('.expand-knn').on('click', function(){
+    document.getElementById("hidden_knn").style.display = 'none'
+    document.getElementById("display_knn").style.display = 'block'
+  });
+  $('.hide-knn').on('click', function(){
+    document.getElementById("hidden_knn").style.display = 'block'
+    document.getElementById("display_knn").style.display = 'none'
+  });
+
+  display_cn_tree("tree_div", "", tree_object, target_gene, target_drug, drug_gene_map)
+
+}
+
+function populateGeneDrugInfoHTML(target_gene, gene_drug_map) {
+
+  if (target_gene == "") {
+    return "No target gene selected.<br/>"
+  }
+
+  var drugs = gene_drug_map[target_gene]
+  if (!(target_gene in gene_drug_map)) {
+    gene_without_delimiter = target_gene.split(/_|-/)
+    if (gene_without_delimiter.length > 1 && gene_without_delimiter[0] in gene_drug_map) {
+      drugs = gene_drug_map[gene_without_delimiter[0]]
+    }
+    else {
+      return "No drugs associated with target gene.<br/>"
+    }
+  }
+
+  drugs.sort(function(a, b){return b["drug_score"] - a["drug_score"]});
+  activators = []
+  inhibitors = []
+  others = []
+  for(i=0; i<drugs.length; i++) {
+    drug = drugs[i]
+    if (drug.drug_score < 3) {
+      continue
+    }
+    if(isInhibitor(drug.interaction_types)) { 
+      inhibitors.push(drug)
+    }
+    else if (isActivator(drug.interaction_types)) {
+      activators.push(drug)
+    }
+    else {
+      others.push(drug)
+    }
+  }
+
+  if (activators.length + inhibitors.length + others.length == 0) {
+    return "No drugs associated with target gene in at least 3 citations.<br/>"
+  }
+
+  html_string = ""
+
+  if(activators.length) {
+    html_string += "<b><u>Activators:</u></b><br/>"
+    for(i=0; i<activators.length; i++) {
+      drug = activators[i]
+      html_string += "<a href='https://www.dgidb.org/results?searchType=drug&searchTerms=" + drug.drug_name + 
+        "' target='dgidb'>" + drug.drug_name + "</a> (" + drug.drug_score + " citations)<br/>"
+    }
+  }
+
+  if(inhibitors.length) {
+    html_string += "<b><u>Inhibitors:</u></b><br/>"
+    for(i=0; i<inhibitors.length; i++) {
+      drug = inhibitors[i]
+      html_string += "<a href='https://www.dgidb.org/results?searchType=drug&searchTerms=" + drug.drug_name +
+        "' target='dgidb'>" + drug.drug_name + "</a> (" + drug.drug_score + " citations)<br/>"
+    }
+  }
+
+  if (others.length  && activators.length + inhibitors.length !=0) {
+    html_string += "<b><u>Others:</u></b><br/>"
+  }
+  if(others.length) {
+    for(i=0; i<others.length; i++) {
+      drug = others[i]
+      html_string += "<a href='https://www.dgidb.org/results?searchType=drug&searchTerms=" + drug.drug_name +
+        "' target='dgidb'>" + drug.drug_name + "</a> (" + drug.drug_score + " citations)<br/>"
+    }
+  }
+  
+  return html_string
+}
+
+function display_all_trees(tree_sort_state=-1, node_matching_view=0) {
+  e = document.getElementById("drop-down-cohort")
+  var cohort_name = e.options[e.selectedIndex].text
+  loadFileVariable(datasets[cohort_name])
+
+  sleep(1000).then(() => {
+
+    sample_map = eval("sample_map")
+    loadFileVariable(sample_map["heatmap_values"])
+    loadFileVariable(sample_map["tree_matches"])
+
+  sleep(1000).then(() => {
+
+    matching_trees = eval("matching_trees")
+    var matching_trees_map = objectToMap(matching_trees)
+
+    matrix = eval("matrix")
+
+    // Actions on tree_cohort div refresh.
+    div_tree_cohort = document.getElementById(tree_cohort_div_id)
+    div_tree_cohort.innerHTML = ""
+    sample_list = []
+    zoom = 1 
+    document.getElementById(tree_cohort_div_id).style.zoom = zoom
+
+    // Tree info positioning.
+    div_tree_info = document.getElementById(tree_info_div_id)
+    div_tree_info.innerHTML = ""
+    div_tree_cohort_top_offset = div_tree_cohort.getBoundingClientRect().top 
+    div_tree_info.style.top = div_tree_cohort_top_offset + "px"
+                          
+    background_colors = ["#F9F6EE", "#F8EAEC", "#EBF5F7", "#FFF8DC", 
+                         "#E8DFD0", "#F0D7DF", "#C3E2E8", "#FCE9C5", "#F5F2F6", "#E1E3DA",
+                         "#FFD3DD", "#E0D9E4", "#DEFDEF", "#D0F6CF", "#F3FEFC", "#FFD7BA"]
+    //["#F9F6EE", "#FFF8DC", "#FDEDEC", "#CEFCBA", "#F4EEA9", "#F5DAD2", "#FFD8B4", 
+    //    "#FFCACC", "#EEE3CB", "#E3F4F4", "#EBDEF0", "#F2F4F4", "#D6EAF8"]
+    node_colors = ["#A87676", "#E493B3", "#B784B7", "#8E7AB5", "#F6995C", "#EEC759", "#E9B384", 
+                   "#88AB8E", "#4f6f52", "#65647C", "#8B7E74", "#FF8Dc7", "#A7D2CB", "#554994"]
+    //['#a1c9f4', '#ffb482', '#8de5a1', '#ff9f9b', '#d0bbff', '#debb9b', '#fab0e4', '#cfcfcf', '#fffea3', '#b9f2f0'] // seaborn pastel
+    //["#FFB8B1", "#FFDAC1", "#97C1A9", "#55CBCD", "#9AB7D3", "#DFCCF1", "#1b85b8", "#5a5255", "#559e83", "#ae5a41", "#c3cb71"]
+    // ["#800000", "#E67E22", "#808000", "#00FF00", "#008000", "#00FFFF", "#008080",
+    //    "#000080", "#FF00FF", "#800080", "#CCCCFF"]
+
+    trees_json = sample_map["trees"] 
+    clusters = []
+    if ("clusters" in sample_map && Object.keys(sample_map["clusters"]) != 0  && 
+        (tree_sort_state == -1 || tree_sort_state == 0)) {
+      clusters = sample_map["clusters"]
+    }
+    else {
+      one_big_cluster = []
+      if (tree_sort_state == -1 || tree_sort_state == 0) {
+        sample_names = Object.keys(trees_json)
+      } else if (tree_sort_state == 1) {
+        sample_names = Object.keys(trees_json).sort()
+      } else if(tree_sort_state == 2) {
+        sample_names = Object.keys(trees_json)
+        shuffleArray(sample_names)
+      }
+      
+      for (let i = 0; i < sample_names.length; i++) {    
+        one_big_cluster.push(sample_names[i])
+      }
+      clusters = [one_big_cluster]
+    }
+    sample_metadata_map = {}
+    for (let i = 0; i < clusters.length; i++) {
+      if (clusters.length == 1) { 
+        cluster_color = "#FFFFFF"
+      } else {
+        if (clusters[i].length > 1) {
+          cluster_color = background_colors[i % background_colors.length]
+        }
+        else {
+          cluster_color = "#FFFFFF"
+        }
+      }
+      border_color = tinycolor(cluster_color).darken(5).desaturate(20).toRgbString()
+      text_color = tinycolor(cluster_color).darken(20).desaturate(40).toHexString()
+
+      // Assign colors corresponding to matching_labels.
+      matching_nodes_color_map = {} // matching_label:color
+      color_index = 0
+
+      // List of samples in their given order.
+      for (let j = 0; j < clusters[i].length; j++) {
+        sample_name = clusters[i][j]
+        sample_list.push(sample_name)
+      }
+ 
+      // Compute common labels per cluster.
+      set_labels_tree_0 = get_matching_labels(trees_json[clusters[i][0]])
+      cluster_label_intersection = set_labels_tree_0
+      for (let j = 1; j < clusters[i].length; j++) {
+        sample_name = clusters[i][j]
+        sample_list.push(sample_name)
+        sample_data = trees_json[sample_name]
+        label_set = get_matching_labels(sample_data)
+        cluster_label_intersection = cluster_label_intersection.intersection(label_set)
+      }
+
+      matching_label_event_map = {}
+      json_tree = sample_data["tree"]
+      var node_hierarchy = d3.hierarchy(json_tree)
+      var treemap = d3.tree()
+      node_list = treemap(node_hierarchy).descendants()
+      for (let i=0; i<node_list.length; i++) {
+        node = node_list[i]
+        if (node.parent != null && node.data.gene_events && !node.data.is_neutral){ // discard root, empty nodes and neutral nodes.
+          key = Object.keys(node.data.gene_events)[0]
+          matching_label_event_map[node.data.matching_label] = key
+        }
+      }
+
+      // Assign colors corresponding to matching_labels.
+      matching_nodes_color_map = {} // matching_label:color
+      if (clusters[i].length > 1) {
+        color_index = 0
+        shuffleArray(node_colors)
+        for(let matching_label of cluster_label_intersection) {
+          color = node_colors[color_index % node_colors.length]
+          matching_nodes_color_map[matching_label] = color 
+          color_index += 1
+          cluster_node_intersection[i] = {"color": color, "gene_events": matching_label_event_map[matching_label]} // TODO
+        }
+      }
+
+      // Compute the set of all matching labels (not used).
+      /*for (let j = 0; j < clusters[i].length; j++) {
+        sample_name = clusters[i][j]
+        sample_data = trees_json[sample_name]
+        json_tree = sample_data["tree"]
+        var node_hierarchy = d3.hierarchy(json_tree)
+        var treemap = d3.tree()
+        node_list = treemap(node_hierarchy).descendants()
+        matching_labels = new Set()
+        for (let i=0; i<node_list.length; i++) {
+          node = node_list[i]
+          if (node.data.node_id && node.data.gene_events && !node.data.is_neutral){ // discard root, empty nodes and neutral nodes.
+            matching_labels.add(node.data.matching_label)
+          }
+        }
+        shuffleArray(node_colors)
+        for(let matching_label of matching_labels) {
+          if (!(matching_label in matching_nodes_color_map)) {
+            matching_nodes_color_map[matching_label] = "white"
+          }
+          else {
+            if (matching_nodes_color_map[matching_label] == "white") {
+              matching_nodes_color_map[matching_label] = node_colors[color_index % node_colors.length]
+              color_index += 1
+            }
+          }
+        }
+      }*/
+
+      // Populate div to display the tree cohort.
+      for (let j = 0; j < clusters[i].length; j++) {
+        sample_name = clusters[i][j]
+        sample_data = trees_json[sample_name]
+        json_tree = sample_data["tree"]
+        if ("metadata" in sample_data) {
+          sample_metadata = sample_data["metadata"]
+          sample_metadata_map[sample_name] = sample_metadata
+        }
+
+        // Create div structure: <div><cluster_div><tree_div></div>
+        var outer_tree_div = document.createElement("div")
+        outer_tree_div.setAttribute("style", "display: inline-block; background-color:" + cluster_color)
+        if(clusters.length > 1) {
+          if (j == 0 && clusters[i].length > 1) {
+            var click_cluster_div = document.createElement("div")
+            click_cluster_div.className = "cluster_div"
+            click_cluster_div.setAttribute("style", "cursor: pointer;")
+            click_cluster_div.innerHTML = '&nbsp;<i class="fa fa-desktop fa-sm" style="color:' + text_color + 
+                '"></i> <i><font color="' + text_color  + '"> &thinsp; show cluster details </i>'
+            click_cluster_div.addEventListener('click', showClusterInfo)
+            click_cluster_div.samples = clusters[i]
+            click_cluster_div.node_intersections = cluster_node_intersection[i]
+            click_cluster_div.document = document
+            click_cluster_div.tree_info_div_id = tree_info_div_id
+            click_cluster_div.cluster_bg_color = cluster_color
+            outer_tree_div.appendChild(click_cluster_div)
+          }
+          else {
+            outer_tree_div.innerHTML = "<br/>"
+          }
+        }
+
+        timestamp = Date.now()
+        var tree_div_id = sample_name + "_" + timestamp + "_tree"
+        var tree_div = document.createElement("div")
+        tree_div.setAttribute("style", "border: 1px solid " + border_color + 
+            ";cursor: pointer; border-radius: 8px; display: inline-block; background-color:" + cluster_color)
+        tree_div.setAttribute("id", tree_div_id)
+
+        tree_div.addEventListener('click', populateTreeInfo) 
+        tree_div.tree_info_div_id = tree_info_div_id
+        tree_div.sample_name = sample_name
+        tree_div.metadata = sample_metadata
+        tree_div.tree_object = json_tree
+        tree_div.matching_trees_map = matching_trees_map
+
+        div_tree_cohort.appendChild(outer_tree_div)
+        outer_tree_div.appendChild(tree_div)
+        display_cn_tree(tree_div_id, sample_name, json_tree, "", "", null, show_details=false, matching_label_color_map=matching_nodes_color_map)
+      }
+    }
+
+    [sample_metadata_colors, metadat_color_map] = get_metadata_color_map(sample_metadata_map)
+    table_color_codes = display_color_codes(document, metadat_color_map)
+  })
+  })
+}
+
+display_all_trees()
+
+</script>
+
+</body>
