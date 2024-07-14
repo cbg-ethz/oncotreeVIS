@@ -807,16 +807,17 @@ function display_all_trees(tree_sort_state=-1, node_matching_view=0) {
   var cohort_name = e.options[e.selectedIndex].text
   loadFileVariable(datasets[cohort_name])
 
-  sleep(1000).then(() => {
+  sleep(2000).then(() => {
 
     sample_map = eval("sample_map")
     loadFileVariable(sample_map["heatmap_values"])
     loadFileVariable(sample_map["tree_matches"])
 
-  sleep(1000).then(() => {
+  sleep(2000).then(() => {
 
     matching_trees = eval("matching_trees")
     var matching_trees_map = objectToMap(matching_trees)
+    console.log(matching_trees_map, matching_trees_map)
 
     matrix = eval("matrix")
 
