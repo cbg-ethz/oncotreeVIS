@@ -3,7 +3,7 @@
 </div>
 
 <br/>
-<b>A visualization demo can be seen here:</b> [https://cbg-ethz.github.io/oncotreeVIS](https://cbg-ethz.github.io/oncotreeVIS/)
+<b>A visualization demo can be seen here:</b> https://cbg-ethz.github.io/oncotreeVIS
 
 # oncotreeVIS – An interactive graphical user interface  for visualising mutation tree cohorts
 
