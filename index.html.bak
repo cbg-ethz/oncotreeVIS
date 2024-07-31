@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="css/style.css">
+<link rel="stylesheet" type="text/css" href="css/zoom.css">
+<link rel="stylesheet" href="dependencies/font-awesome.min.css">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css" integrity="sha384-gfdkjb5BdAXd+lj+gudLWI+BXq4IuLW5IT+brZEZsLFm++aCMlF1V92rMkPaX4PP" crossorigin="anonymous">
+
+<!-- Load the javascript libraries -->    
+<script src="dependencies/jquery.min.js"></script>
+<script src="dependencies/bootstrap.min.js"></script>	
+<script src="dependencies/d3.v4.min.js"></script>
+<script src="dependencies/d3-selection-multi.v1.js"></script>
+<script src="dependencies/tinycolor.js"></script>
+<script src="utils.js"></script>
+<script src="display_tree.js"></script>
+<script src="display_tree_matching.js"></script>
+<script src="dgidb_query_response.js"></script>
+
+<!-- Load tree data -->
+<script src="data/aml_morita/trees_aml_morita.json"></script> 
+
+</head>
+
+<body style="margin-top: 5px; margin-left: 5px; margin-right: 5px;">
+
+<div style="display: flex">
+  <div style="background-color: #b4a7d6; flex-grow: 1; height: 60px"></div>
+  <div style="width: 300px; height: 60px; background: radial-gradient(#ffffff 0%, #b4a7d6); text-align: center; ">
+    <p id="logo" style="font-family:calibri; font-size:40px; letter-spacing: 0.5px;"><b>&nbsp; oncotreeVIS &nbsp;</b></p>
+  </div>
+</div><br/>
+
+<div width="100%" style="font-size: 13px;">
+  Choose tree cohort: <select id="drop-down-cohort"></select><br/>
+  <input type="file" id="picker" onchange="load()">
+</div><br/>
+
+<div width=100% id="container"> </div>
+
+
+<script>
+/*function load () {
+  // (PART B) GET SELECTED FILE
+  let file = document.getElementById("picker").files[0];
+  console.log(file)
+
+  // (PART C) READ SELECTED FILE
+  let reader = new FileReader();
+  reader.onload = () => {
+    //let data = JSON.parse(reader.result);
+    
+    console.log(reader.result);
+  };
+  reader.readAsText(file);
+  
+  https://stackoverflow.com/questions/41849745/how-to-read-local-files-using-html-5-filereader
+  
+}*/
+</script>
+
+<script>
+
+datasets = {"123 AML mutation trees (Morita et al. 2020)": "data/aml_morita/trees_aml_morita.json"}
+            
+var drop_down_cohorts = document.getElementById("drop-down-cohort");
+drop_down_list = Object.keys(datasets)
+for (idx = 0; idx < drop_down_list.length; idx++) {
+  drop_down_cohorts.options[drop_down_cohorts.options.length] = new Option(drop_down_list[idx], idx);
+}       
+
+$('#drop-down-cohort').change(function(){
+  e = document.getElementById("drop-down-cohort")
+  var cohort_name = e.options[e.selectedIndex].text
+  oncotreeVIS(cohort_name, "container")
+}); 
+
+data = data_aml_morita
+
+oncotreeVIS(data, "container")
+
+/////// OncotreeVIS LIBRARY
+
+function oncotreeVIS(data, container_div_id) {
+
+  var tree_cohort_div_id = "tree_cohort"
+  var tree_info_div_id = "tree_info"
+
+  var useful_variables = {"tree_cohort_div_id": tree_cohort_div_id, 
+      "tree_info_div_id": tree_info_div_id}
+  
+  // DGIdb data.
+  var gene_drug_map = parseGeneDrugInteractions(gene_drug_interaction)
+
+  // Create the HTML elements. 
+  addHTMLElements(container_div_id, useful_variables)
+  
+  // Populate with tree data. 
+  trees_json = data["trees"]
+  clusters = Object.keys(trees_json)
+  if ("clusters" in data && Object.keys(data["clusters"]) != 0) {
+    clusters = data["clusters"]
+  }
+  populateTreeView(trees_json, clusters, useful_variables)
+
+ 
+  
+}
+
+
+
+
+// Global variables.
+var tree_cohort_div_id = "tree_cohort"
+var tree_info_div_id = "tree_info"
+var expand_metadata = true
+var expand_dgi = true
+var tree_sort_button_state = -1
+var sample_metadata_colors = {}
+var table_color_codes = null
+var cluster_node_intersection = {}
+var sample_list = []
+var clusters = []
+
+
+
+// Action functions for zoom.
+var zoom = 1;             
+$('.zoom').on('click', function(){
+  //if(zoom < 1){
+    zoom += 0.1;
+  //}
+  document.getElementById(tree_cohort_div_id).style.zoom = zoom
+});
+
+$('.zoom-init').on('click', function(){
+  zoom = 1;
+  document.getElementById(tree_cohort_div_id).style.zoom = zoom
+});
+
+$('.zoom-out').on('click', function(){
+  zoom -= 0.1;
+  document.getElementById(tree_cohort_div_id).style.zoom = zoom
+});
+
+
+
+/*$('.shuffle_trees').on('click', function(){
+  if (tree_sort_button_state == -1 || tree_sort_button_state == 0) {
+    tree_sort_button_state = 1
+    document.getElementById("shuffle_icon").innerHTML = '<i class="fa fa-random"></i>'
+  }
+  else if (tree_sort_button_state == 1){
+    tree_sort_button_state = 2
+    document.getElementById("shuffle_icon").innerHTML = '<i class="fa fa-refresh"></i>'
+  }
+  else if (tree_sort_button_state == 2){
+    tree_sort_button_state = 0
+    document.getElementById("shuffle_icon").innerHTML = '<i class="fas fa-sort-alpha-down"></i>'
+  }
+  display_all_trees(tree_sort_state = tree_sort_button_state)
+})*/
+
+
+
+/*$('.show-matching-nodes').on('click', function(){
+  if (node_matching_view == 0) {
+    node_matching_view = 1
+    document.getElementById("node_matching_icon").innerHTML = '<i class="far fa-circle"></i>'
+  }       
+  else if (node_matching_view == 1){
+    node_matching_view = 0
+    document.getElementById("node_matching_icon").innerHTML = '<i class="fas fa-circle"></i>'
+  }     
+  //display_all_trees(tree_sort_state=tree_sort_button_state, node_matching_view=node_matching_view)
+})*/
+
+$('.cohort-view').on('click', function(){
+  display_all_trees()
+});
+
+function heatmap_view() {
+
+  document.getElementById(tree_cohort_div_id).innerHTML = ""
+  document.getElementById(tree_info_div_id).innerHTML = ""
+  zoom = 1
+  document.getElementById(tree_cohort_div_id).style.zoom = zoom
+
+  var tooltip = d3.select("div#" + tree_cohort_div_id)
+    .append("div")
+    .style("opacity", 0)
+    .attr("class", "tooltip")
+    .style("background-color", "white")
+    .style("border", "solid")
+    .style("border-width", "2px")
+    .style("border-radius", "5px")
+    .style("padding", "3px")
+    .style("visibility", "hidden")
+    .style("display", "none")
+
+  var margin = {top: 30, right: 80, bottom: 80, left: 50},
+    width = 600 - margin.left - margin.right,
+    height = 600 - margin.top - margin.bottom;
+
+  var svg = d3.select("#" + tree_cohort_div_id)
+    .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  // Build X scales and axis.
+  var x = d3.scaleBand()
+    .range([0, width])
+    .domain(sample_list)
+    .padding(0)
+  svg.append("g")
+    .attr("transform", "translate(0," + height + ")")
+    .call(d3.axisBottom(x))
+    .selectAll("text")
+      .attr("transform", "translate(-10,10)rotate(-90)")
+      .style("text-anchor", "end")
+      .style("font-size", 6)
+
+  // Build Y scales and axis/
+  var y = d3.scaleBand()
+    .range([0, height])
+    .domain(sample_list)
+    .padding(0);
+  svg.append("g")
+    .call(d3.axisLeft(y))
+    .selectAll("text")
+      .style("font-size", 6)
+
+  vmin = 1
+  vmax = 0
+  matrix.forEach(function(item) {
+    if (item.distance > vmax) {
+      vmax = item.distance
+    }
+    if (item.distance < vmin) {
+      vmin = item.distance
+    }
+  })
+   
+  // Build color scale
+  legend_colors = ['#073B6F', '#0b559f', '#2b7bba', '#539ecd', '#89bedc', '#bad6eb', '#dbe9f6'] // Seaborn Blues
+  var myColor = d3.scaleLinear()
+    .range(legend_colors)
+    .domain(linspace(vmin,vmax, 7))
+
+  svg.selectAll()
+    .data(matrix) 
+    .enter()
+    .append("rect")
+      .attr("x", function(d) { return x(d.sample_1) })
+      .attr("y", function(d) { return y(d.sample_2) })
+      .attr("width", x.bandwidth() )
+      .attr("height", y.bandwidth() )
+      .style("fill", function(d) { return myColor(d.distance)} )
+    .on('mousemove', function(d) {
+      tooltip
+        .html("&nbsp;Distance b/w " + d.sample_1 + " & " + d.sample_2 + ": " + Math.round(d.distance * 100) / 100 + "&nbsp;") 
+        .style("left", (d3.mouse(this)[0]) + "px")
+        .style("top", (d3.mouse(this)[1] + 50) + "px")
+        .style("visibility", "visible")
+        .style("display", "block")
+        .style("position", "absolute")
+        .style("z-index" ,10)
+        .style("font-size", "10px") 
+    })
+    .on('mouseover', function(d) {
+      tooltip.style("opacity", 1)
+    })
+    .on('mouseleave', function() {
+      tooltip.style("opacity", 0)
+        .style("visibility", "hidden")
+        .style("display", "none") 
+    })
+
+  cluster_starts = {}
+  for(i=0; i<clusters.length; i++) {
+    cluster_starts[clusters[i][0]] = clusters[i].length
+  }
+
+  svg.selectAll()
+    .data(matrix)
+    .enter()
+    .append("rect")
+      .attr("x", function(d) {
+        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1] > 1) {
+          return x(d.sample_1)
+        }
+      })
+      .attr("y", function(d) {
+        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1] > 1) {
+          return y(d.sample_1)
+        }
+      })
+      .attr("width", function(d) {
+        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1] > 1) {
+          return  cluster_starts[d.sample_1] * x.bandwidth()
+        }
+      })
+      .attr("height", function(d) {
+        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1] > 1) {
+          return  cluster_starts[d.sample_1] * x.bandwidth()
+        }
+      })
+      .style("fill", "none")
+      .style("stroke", "#0b559f")
+      .style("stroke-width", "3")
+
+  // Color legend
+  var grad = svg.append('defs')
+    .append('linearGradient')
+    .attr('id', 'grad')
+    .attr('x1', '0%')
+    .attr('x2', '0%')
+    .attr('y1', '0%')
+    .attr('y2', '100%');
+
+  grad.selectAll('stop')
+    .data(legend_colors)
+    .enter()
+    .append('stop')
+    .style('stop-color', function(d){ return d; })
+    .attr('offset', function(d,i){
+      return 100 * (i / (legend_colors.length - 1)) + '%';
+    })
+
+  svg.append('rect')
+    .attr('x', width + 10)
+    .attr('y', 0)
+    .attr('width', 25)
+    .attr('height', 150)
+    .style('fill', 'url(#grad)');
+  
+  svg.append("text")
+    .attr("id", "rectangleText")
+    .attr("class", "visible")
+    .attr("x", width + 12)
+    .attr("y", -5) 
+    .attr("width",100)
+    .style("font-size", "10px")
+    .text("max");
+
+  svg.append("text")
+    .attr("id", "rectangleText")
+    .attr("class", "visible")
+    .attr("x", width + 13)
+    .attr("y", 163) 
+    .attr("width",100)
+    .style("font-size", "10px")
+    .text("min");
+
+  svg.append("text")
+    .attr("id", "rectangleText")
+    .attr("class", "visible")
+    .attr("x", -37)
+    .attr("y", width + 36)
+    .attr("transform", "translate(-10, 10) rotate(-90)")
+    .style("text-anchor", "end")
+    .attr("width",100)
+    .style("font-size", "15px")
+    .attr("fill", "white")
+    .text("similarity");
+
+}
+
+datasets = {"123 AML mutation trees (Morita et al. 2020)": "data/aml_morita/trees_aml_morita.json"} 
+
+var drop_down_cohorts = document.getElementById("drop-down-cohort");
+drop_down_list = Object.keys(datasets)
+for (idx = 0; idx < drop_down_list.length; idx++) {
+  drop_down_cohorts.options[drop_down_cohorts.options.length] = new Option(drop_down_list[idx], idx);
+}
+$('#drop-down-cohort').change(function(){
+  display_all_trees()
+});
+
+function display_all_trees(onclick_event) {
+
+  if(onclick_event != null) {
+    console.log(onclick_event.currentTarget.param)
+  }
+  
+  e = document.getElementById("drop-down-cohort")
+  var cohort_name = e.options[e.selectedIndex].text
+  loadFileVariable(datasets[cohort_name])
+
+  sleep(2000).then(() => {
+
+    sample_map = eval("sample_map")
+    loadFileVariable(sample_map["heatmap_values"])
+    loadFileVariable(sample_map["tree_matches"])
+
+  sleep(2000).then(() => {
+
+    matching_trees = eval("matching_trees")
+    var matching_trees_map = objectToMap(matching_trees)
+    matrix = eval("matrix")
+
+    // Actions on tree_cohort div refresh.
+    div_tree_cohort = document.getElementById(tree_cohort_div_id)
+    div_tree_cohort.innerHTML = ""
+    sample_list = []
+    zoom = 1 
+    document.getElementById(tree_cohort_div_id).style.zoom = zoom
+
+    // Tree info positioning.
+    div_tree_info = document.getElementById(tree_info_div_id)
+    div_tree_info.innerHTML = ""
+    div_tree_cohort_top_offset = div_tree_cohort.getBoundingClientRect().top 
+    div_tree_info.style.top = div_tree_cohort_top_offset + "px"
+                          
+    background_colors = ["#F9F6EE", "#F8EAEC", "#EBF5F7", "#FFF8DC", 
+                         "#E8DFD0", "#F0D7DF", "#C3E2E8", "#FCE9C5", "#F5F2F6", "#E1E3DA",
+                         "#FFD3DD", "#E0D9E4", "#DEFDEF", "#D0F6CF", "#F3FEFC", "#FFD7BA"]
+    node_colors = ["#A87676", "#E493B3", "#B784B7", "#8E7AB5", "#F6995C", "#EEC759", "#E9B384", 
+                   "#88AB8E", "#4f6f52", "#65647C", "#8B7E74", "#FF8Dc7", "#A7D2CB", "#554994"]
+
+    trees_json = sample_map["trees"] 
+    clusters = []
+    if ("clusters" in sample_map && Object.keys(sample_map["clusters"]) != 0) {
+      clusters = sample_map["clusters"]
+    }
+    else {
+      one_big_cluster = []
+      sample_names = Object.keys(trees_json)
+      //shuffleArray(sample_names)
+      for (let i = 0; i < sample_names.length; i++) {    
+        one_big_cluster.push(sample_names[i])
+      }
+      clusters = [one_big_cluster]
+    }
+    sample_metadata_map = {}
+    for (let i = 0; i < clusters.length; i++) {
+      if (clusters.length == 1) { 
+        cluster_color = "#FFFFFF"
+      } else {
+        if (clusters[i].length > 1) {
+          cluster_color = background_colors[i % background_colors.length]
+        }
+        else {
+          cluster_color = "#FFFFFF"
+        }
+      }
+      border_color = tinycolor(cluster_color).darken(5).desaturate(20).toRgbString()
+      text_color = tinycolor(cluster_color).darken(20).desaturate(40).toHexString()
+
+      // Assign colors corresponding to matching_labels.
+      matching_nodes_color_map = {} // matching_label:color
+      color_index = 0
+
+      // List of samples in their given order.
+      for (let j = 0; j < clusters[i].length; j++) {
+        sample_name = clusters[i][j]
+        sample_list.push(sample_name)
+      }
+ 
+      // Compute common labels per cluster.
+      set_labels_tree_0 = get_matching_labels(trees_json[clusters[i][0]])
+      cluster_label_intersection = set_labels_tree_0
+      for (let j = 1; j < clusters[i].length; j++) {
+        sample_name = clusters[i][j]
+        sample_list.push(sample_name)
+        sample_data = trees_json[sample_name]
+        label_set = get_matching_labels(sample_data)
+        cluster_label_intersection = cluster_label_intersection.intersection(label_set)
+      }
+
+      matching_label_event_map = {}
+      json_tree = sample_data["tree"]
+      var node_hierarchy = d3.hierarchy(json_tree)
+      var treemap = d3.tree()
+      node_list = treemap(node_hierarchy).descendants()
+      for (let i=0; i<node_list.length; i++) {
+        node = node_list[i]
+        if (node.parent != null && node.data.gene_events && !node.data.is_neutral){ // discard root, empty nodes and neutral nodes.
+          key = Object.keys(node.data.gene_events)[0]
+          matching_label_event_map[node.data.matching_label] = key
+        }
+      }
+
+      // Assign colors corresponding to matching_labels.
+      matching_nodes_color_map = {} // matching_label:color
+      if (clusters[i].length > 1) {
+        color_index = 0
+        shuffleArray(node_colors)
+        for(let matching_label of cluster_label_intersection) {
+          color = node_colors[color_index % node_colors.length]
+          matching_nodes_color_map[matching_label] = color 
+          color_index += 1
+          cluster_node_intersection[i] = {"color": color, "gene_events": matching_label_event_map[matching_label]} // TODO
+        }
+      }
+
+      // Populate div to display the tree cohort.
+      for (let j = 0; j < clusters[i].length; j++) {
+        sample_name = clusters[i][j]
+        sample_data = trees_json[sample_name]
+        json_tree = sample_data["tree"]
+        if ("metadata" in sample_data) {
+          sample_metadata = sample_data["metadata"]
+          sample_metadata_map[sample_name] = sample_metadata
+        }
+
+        // Create div structure: <div><cluster_div><tree_div></div>
+        var outer_tree_div = document.createElement("div")
+        outer_tree_div.setAttribute("style", "display: inline-block; background-color:" + cluster_color)
+        if(clusters.length > 1) {
+          if (j == 0 && clusters[i].length > 1) {
+            var click_cluster_div = document.createElement("div")
+            click_cluster_div.className = "cluster_div"
+            click_cluster_div.setAttribute("style", "cursor: pointer;")
+            click_cluster_div.innerHTML = '&nbsp;<i class="fa fa-desktop fa-sm" style="color:' + text_color + 
+                '"></i> <i><font color="' + text_color  + '"> &thinsp; show cluster details </i>'
+            click_cluster_div.addEventListener('click', showClusterInfo)
+            click_cluster_div.samples = clusters[i]
+            click_cluster_div.node_intersections = cluster_node_intersection[i]
+            click_cluster_div.document = document
+            click_cluster_div.tree_info_div_id = tree_info_div_id
+            click_cluster_div.cluster_bg_color = cluster_color
+            outer_tree_div.appendChild(click_cluster_div)
+          }
+          else {
+            outer_tree_div.innerHTML = "<br/>"
+          }
+        }
+
+        timestamp = Date.now()
+        var tree_div_id = sample_name + "_" + timestamp + "_tree"
+        var tree_div = document.createElement("div")
+        tree_div.setAttribute("style", "border: 1px solid " + border_color + 
+            ";cursor: pointer; border-radius: 8px; display: inline-block; background-color:" + cluster_color)
+        tree_div.setAttribute("id", tree_div_id)
+
+        tree_div.addEventListener('click', populateTreeInfo) 
+        tree_div.tree_info_div_id = tree_info_div_id
+        tree_div.sample_name = sample_name
+        tree_div.metadata = sample_metadata
+        tree_div.tree_object = json_tree
+        tree_div.matching_trees_map = matching_trees_map
+
+        div_tree_cohort.appendChild(outer_tree_div)
+        outer_tree_div.appendChild(tree_div)
+        display_cn_tree(tree_div_id, sample_name, json_tree, "", "", null, show_details=false, matching_label_color_map=matching_nodes_color_map)
+      }
+    }
+
+    [sample_metadata_colors, metadat_color_map] = get_metadata_color_map(sample_metadata_map)
+    table_color_codes = display_color_codes(document, metadat_color_map)
+  })
+  })
+}
+
+display_all_trees()
+
+</script>
+
+</body>
