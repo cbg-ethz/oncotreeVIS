@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+<link href="css/bootstrap.min.css" rel="stylesheet"> 
+<link rel="stylesheet" type="text/css" href="css/style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+<!-- Load the javascript libraries -->    
+<script src="dependencies/jquery.min.js"></script>
+<script src="dependencies/d3.v4.min.js"></script>
+<script src="dependencies/d3-selection-multi.v1.js"></script>
+<script src="dependencies/tinycolor.js"></script>
+<script src="dependencies/numeric.js"></script>
+<script src="dependencies/svd.js"></script>
+<script src="oncotreevis.js"></script>
+<script src="display_tree.js"></script>
+<script src="display_tree_matching.js"></script>
+<script src="dgidb_query_response.js"></script>
+
+<!-- Load tree datasets -->
+<script src="data/aml_morita/trees_aml_morita.json"></script> 
+<script src="data/aml_morita/knn_aml_morita.json"></script>
+<script src="data/aml_compass/trees_aml_compass.json"></script>
+<!-- <script src="data/brca_razavi/trees_brca_razavi.json"></script> -->
+<script src="data/tracerx/tracerx_lung/trees_tracerx_lung.json"></script>
+<script src="data/tracerx/tracerx421/trees_tracerx421.json"></script>
+<script src="data/noble2022/trees_noble2022.json"></script>
+
+</head>
+
+<body style="margin-top: 5px; margin-left: 5px; margin-right: 5px;">
+
+<div style="display: flex">
+  <div style="background-color: #b4a7d6; flex-grow: 1; height: 60px"></div>
+  <div style="width: 300px; height: 60px; background: radial-gradient(#ffffff 0%, #b4a7d6); text-align: center; ">
+    <p id="logo" style="font-family:calibri; font-size:40px; letter-spacing: 0.5px;"><b>&nbsp; oncotreeVIS &nbsp;</b></p>
+  </div> 
+  <div style="background-color: #b4a7d6; height: 60px; padding-top:5px;">
+    &nbsp;&nbsp;<a style="text-decoration: none"  href="https://github.com/cbg-ethz/oncotreeVIS" target="new">
+      <i class="fa fa-github" style="font-size:48px; color:#353935"></i>&nbsp;&nbsp; </a>
+  </div>
+</div><br/>
+
+<div width="100%" style="font-size: 13px;">
+  Select predefined or custom mutation tree cohort: <select id="drop-down-cohort"></select><br/>
+  <input type="file" id="picker" onchange="load()" style="display:none">
+</div><br/>                 
+
+<div width=100% id="container"> </div>
+
+<script>
+function load () {
+  // Get selected file.
+  let file = document.getElementById("picker").files[0];
+
+  // Read selected file.
+  let reader = new FileReader();
+  reader.onload = () => {
+    let data = JSON.parse(reader.result);  
+    oncotreeVIS(data, "container")
+  };
+  reader.readAsText(file);
+}
+</script>
+
+<script>
+
+datasets = {
+    "[CLUSTERED] 123 AML point mutation trees (Morita et al. 2020)": {"data": data_aml_morita, "matching_trees": knn_aml_morita},
+    "145 AML joint CN-point mutation trees (COMPASS, Sollier et al. 2022)": {"data": data_aml_compass},
+    //"[CLUSTERED] 25 TumorProfiler AML CN trees": {"data": data_tupro_aml},
+    "[CLUSTERED] 43 tumor evolution trees (Noble et al. 2022)": {"data": data_noble2022},
+    "[CLUSTERED] 99 non-small cell lung cancer point mutation trees (TRACERx, Jamal-Hanjani et al. 2017)": {"data": data_tracerx_lung},
+    "126 non-small cell lung metastatic cancer point mutation trees (TRACERx421, Al Bakir et al. 2023)": {"data": data_tracerx421},
+    //"1,315 Breast cancer mutation trees (Razavi et al. 2018)": {"data": data_brca_razavi},
+    "--> Load custom mutation tree cohort file (specific input format required)": {}
+}
+            
+var drop_down_cohorts = document.getElementById("drop-down-cohort")
+
+Object.keys(datasets).forEach(function (dataset, idx) {
+  drop_down_cohorts.options[drop_down_cohorts.options.length] = new Option(dataset, idx);
+})
+
+$('#drop-down-cohort').change(function(){
+  e = document.getElementById("drop-down-cohort")
+  var cohort_name = e.options[e.selectedIndex].text
+
+  if (cohort_name.includes("custom mutation tree cohort")) {
+    $('input[type=file]').trigger('click');
+  } else {
+    data = datasets[cohort_name]["data"]
+    data["matching_trees"] = datasets[cohort_name]["matching_trees"]
+    oncotreeVIS(data, "container")
+  }
+});
+
+data = data_aml_morita
+data["matching_trees"] = knn_aml_morita       
+oncotreeVIS(data, "container")
+
+/////// OncotreeVIS LIBRARY
+function oncotreeVIS(data, container_div_id) {
+  var num_max_node_colors = 10
+  var tree_cohort_div_id = "tree_cohort"
+  var tree_info_div_id = "tree_info"
+
+  // Compute additional information from the data.
+  trees = data["trees"]
+
+  // Additional data to all trees.
+  unique_matching_labels_cohort = {} // map {matching_label: bool}
+  for (sample_name in trees) {
+    tree = trees[sample_name]["tree"]
+    matching_labels = getMatchingLabels(tree)
+    for (matching_label of matching_labels) {
+      key = matching_label.toString()
+      if (key in unique_matching_labels_cohort) {
+        unique_matching_labels_cohort[key] = false
+      } else {
+        unique_matching_labels_cohort[key] = true
+      }
+    }
+  }
+
+  display_matching_labels = false
+  num_non_unique_matching_labels = Object.values(unique_matching_labels_cohort).filter(x => x == false).length
+  if(num_non_unique_matching_labels > num_max_node_colors) {
+    display_matching_labels = true
+  }
+  cohort_node_color_map = {}
+  cohort_node_color_generator = new ColorGenerator(node_colors, shuffle=true, transparent_flavour=0.3)
+  for (key in unique_matching_labels_cohort) {
+    if (!unique_matching_labels_cohort[key]) {
+      cohort_node_color_map[key] = cohort_node_color_generator.next()
+    } 
+  }
+
+  for (sample_name in trees) {
+    tree = trees[sample_name]["tree"]
+    // Propagate gene states.
+    populateGeneStates(tree)
+    // Populate the node colors.
+    var node_list = getTreeNodes(trees[sample_name]["tree"])
+    for(node of node_list) {
+      if (node.parent && node.data.matching_label) { // not root.
+        key = node.data.matching_label.toString()
+        if (key in cohort_node_color_map) {
+          node.data.color_in_cohort = cohort_node_color_map[key]
+          node.data.display_node_label_cohort = display_matching_labels
+        }
+      }
+    }
+  }  
+
+  // Clusters.
+  if ("clusters" in data && data["clusters"].length != 0) {
+    clusters = data["clusters"]
+  } else {
+    clusters = [Object.keys(trees)] // One big cluster.
+  }
+
+  // Colors at cluster level.
+  used_colors = {}
+  cluster_color_generator = new ColorGenerator(background_colors, shuffle=false, transparent_flavour=0.7)
+  cluster_node_color_generator = new ColorGenerator(node_colors, shuffle=true, transparent_flavour=0.3)
+  for (const [i, cluster] of clusters.entries()) {
+    conserved_branches_cluster = getBranches(trees[cluster[0]]["tree"])
+    unique_matching_labels_cluster = {}
+    for (sample_name of cluster) {
+      // Cluster colors.
+      trees[sample_name]["cluster_color"] = "white"
+      trees[sample_name]["2d_color"] = "white"
+     
+      // Nodes and branches.
+      tree = trees[sample_name]["tree"]
+      conserved_branches_cluster = conserved_branches_cluster.intersection(getBranches(tree))           
+      matching_labels = getMatchingLabels(tree)
+      for (matching_label of matching_labels) {
+        key = matching_label.toString()
+        if (key in unique_matching_labels_cluster) {
+          unique_matching_labels_cluster[key] = false
+        } else {
+          unique_matching_labels_cluster[key] = true
+        }
+      } 
+    }
+
+    display_matching_labels = false
+    num_non_unique_matching_labels = Object.values(unique_matching_labels_cluster).filter(x => x == false).length
+    if(num_non_unique_matching_labels > num_max_node_colors) {
+      display_matching_labels = true
+    }
+
+    if (cluster.length > 1 && clusters.length > 1) {
+      cluster_color = cluster_color_generator.next()
+      cluster_node_color_map = {}
+      for (key in unique_matching_labels_cluster) {
+        if (!unique_matching_labels_cluster[key]) {
+          if (key in used_colors) {
+            cluster_node_color_map[key] = used_colors[key]
+          } else {
+            color = cluster_node_color_generator.next()
+            cluster_node_color_map[key] = color
+            used_colors[key] = color
+          }
+        } 
+      }
+
+      for (sample_name of cluster) {
+        // Update cluster colors.
+        trees[sample_name]["cluster_color"] = cluster_color
+        trees[sample_name]["2d_color"] = tinycolor(cluster_color).darken(50).toHexString()
+
+        // For each cluster tree populate node colors and conserved branches.
+        for (sample_name of cluster) {
+          var node_list = getTreeNodes(trees[sample_name]["tree"])
+          for(node of node_list) {
+            if(node.parent) { // not root.
+              // Conserved branches.
+              if (conserved_branches_cluster.has(node.parent.data.matching_label + "_" + node.data.matching_label)) {
+                node.data.conserved_parent_node_edge_cluster = true
+              } 
+              // Matching nodes.
+              if (node.parent && node.data.matching_label) {
+                key = node.data.matching_label.toString()
+                if (key in cluster_node_color_map) { 
+                  node.data.color_in_cluster = cluster_node_color_map[key]
+                  node.data.display_node_label_cluster = display_matching_labels
+                }
+              } 
+            }
+          }
+        }
+      }
+
+      // Cluster metadata.
+      var sample_metadata_map = {}
+      for (sample_name of cluster) {
+        if ("metadata" in trees[sample_name]) {
+          sample_metadata = trees[sample_name]["metadata"]
+          sample_metadata_map[sample_name] = sample_metadata
+        }
+      }
+      [sample_metadata_colors, metadata_color_map] = getMetadataColorMap(sample_metadata_map)
+      table_color_codes = getColorCodesTable(metadata_color_map)
+      trees[cluster[0]]["sample_metadata_colors"] = sample_metadata_colors
+      trees[cluster[0]]["table_color_codes"] = table_color_codes
+    }
+  }
+  // END Populate additional data.
+
+  var useful_variables = {
+    "tree_cohort_div_id": tree_cohort_div_id, 
+    "tree_info_div_id": tree_info_div_id,
+    "data": data,
+    "sorting": 0,
+    "matching": 0
+  }
+  
+  // DGIdb data.
+  var gene_drug_map = parseGeneDrugInteractions(gene_drug_interaction)
+
+  // Create the HTML elements. 
+  addHTMLElements(container_div_id, useful_variables)
+  
+  // Populate with tree data. 
+  populateTreeView(useful_variables)
+}
+
+$(function(){
+  var container = $('#tree_info');
+  var initial_position = container.position().top
+
+  $(document).scroll(function() {
+    scroll_offset = $(document).scrollTop()
+    container.css('top', Math.max(0, initial_position - scroll_offset));
+  });
+});
+
+</script>
+
+</body>
