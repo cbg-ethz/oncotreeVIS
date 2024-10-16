@@ -1467,7 +1467,7 @@ function populateHeatmapView(args) {
       })
       .attr("height", function(d) {
         if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1]["size"] > 1) {
-          return  cluster_starts[d.sample_1]["size"] * x.bandwidth()
+          return  cluster_starts[d.sample_1]["size"] * y.bandwidth()
         }
       })
       .style("fill", "none")
