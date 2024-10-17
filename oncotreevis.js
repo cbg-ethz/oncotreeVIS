@@ -1,20 +1,6 @@
 ///////////////////////
 //// HTML elements ////
 ///////////////////////
-function loadLocalFile() {
-  // Get selected file.
-  let file = document.getElementById("picker").files[0];
-  console.log(file)
-
-  // Read selected file.
-  let reader = new FileReader();
-  reader.onload = () => {
-    let data = JSON.parse(reader.result);
-    console.log(data)
-    //oncotreeVIS(data, "container")
-  }
-}
-
 function createBlueBorder(){
   var div = document.createElement('span')
   div.style.border = "4px solid #c2dffe"
@@ -510,7 +496,7 @@ function populateGeneStates(tree){
 //// HTML helpers ////
 //////////////////////
 function appendLineBreak(div) {
-  div.appendChild(document.createElement("br"))
+  div.appendChild(document.createElement("p"))
 }
 
 function appendHalfLineBreak(div) {
@@ -1151,7 +1137,7 @@ function showClusterInfo(args) {
   var metadata_table = getMetadataTable(cluster_metadata)
   tree_info_div.appendChild(metadata_table)
   appendLineBreak(tree_info_div)
-
+  appendLineBreak(tree_info_div)
 }
 
 function  getRandomColor(alpha=0) {
