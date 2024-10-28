@@ -35,5 +35,5 @@ The expected input is a JSON file with the following key values:<br/>
 | pairwise_distances   | List of dictionaries where the keys are the tree ids of the pair of trees (strings) and the distance score (float).<br/><br/> Example:<br/>[{'sample_1': 'AML-73-001', 'sample_2': 'AML-22-001', 'distance': 0.6072}, … ]</br></br> A tree distance metric can be obtained e.g., with <a href=https://doi.org/10.1093/bioinformatics/btae214 target=onc>oncotree2vec</a>.|
 | highlighted_genes | Styles used: "bold", "italic", color code.<br/><br/>Example:<br/>{"bold": ["JAK2", "PTEN", "TP53", "AKT1"]} |
 
-<br/><br/>The JSON files used for the predefined datasets are available in the <i>data</i> folder. 
+<br/>The JSON files used for the predefined datasets are available in the <i>data</i> folder. 
 
