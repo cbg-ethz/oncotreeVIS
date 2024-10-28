@@ -29,10 +29,10 @@ function get_color_for_cn_event(cn_event) {
 
 var violet_color = "#b4a7d6"
 function get_node_color(node, target_gene) {
-  if (node.data.gene_states.has(target_gene)) {
-    gene_events = node.data.gene_states.get(target_gene)
-    if (gene_events.has("CNA")) {
-      gene_state = gene_events.get("CNA")
+  if (target_gene in node.data.gene_states) {
+    gene_events = node.data.gene_states[target_gene]
+    if ("CNA" in gene_events) {
+      gene_state = gene_events["CNA"]
       return get_color_for_cn_event(gene_state)
     } else {
       return violet_color
@@ -82,14 +82,16 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
             "translate(" + margin.left + "," + margin.top + ")");
 
   // Add sample name.
-  g.append("text")
-    .attr("id", "rectangleText")
-    .attr("class", "visible")
-    .attr("x", -10)
-    .attr("y", -10)
-    .attr("width",10)
-    .style("font-size", "13px")
-    .text(tree_label);
+  if(!tree_info_view) {
+    g.append("text")
+      .attr("id", "rectangleText")
+      .attr("class", "visible")
+      .attr("x", -10)
+      .attr("y", -10)
+      .attr("width",10)
+      .style("font-size", "13px")
+      .text(tree_label);
+  }
 
   // Adds the links between the nodes.
   var link = g
@@ -193,7 +195,6 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
         if (d.parent) {
           var path_element = d3.select('#' + tree_label + "_" + d.data.node_id).node()
           var branch_length = path_element.getTotalLength()
-
           var coord = path_element.getPointAtLength(branch_length/2)
           var coord_x = coord.x// - d.parent.x
           var coord_y = coord.y// - d.parent.y 
@@ -234,7 +235,7 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
         }
       })
       .each(function(d) {
-        if (d.parent) {
+        if (d.parent && d.data.gene_event_categories) {
           node_id = d.data.node_id
           var text_element = d3.select(this)
           var path_element = d3.select('#' + tree_label + "_" + d.data.node_id).node()
@@ -257,7 +258,7 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
           }
 
           var idx = 0
-          for (key in d.data.gene_event_categories) {
+          for (let [key, gene_set] of d.data.gene_event_categories.entries()) {
             straight_height = ray_node + idx * line_height + 3
             coord = path_element.getPointAtLength(straight_height)
             coord_x = coord.x - d.parent.x
@@ -273,7 +274,6 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
 
             text = ""
             short_key = key.toString().substring(0,3).toLowerCase()
-            gene_set = d.data.gene_event_categories[key]
             num_genes = gene_set.size
             if (num_genes > 1) {
               text = text + num_genes + " " + short_key
@@ -302,6 +302,7 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
   }
 
   if (tree_info_view) {
+    max_genes_in_list = 4
     node.on('mousemove', function(d) {
       // Compute html info.
       if (d.parent) {
@@ -316,19 +317,19 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
         if (d.data.is_neutral) {
           html_info += "<b>Is neutral:</b> " + d.data.is_neutral + "<br/>"
         }
-
-        const [gene_events, gene_events_with_details] = getGeneCategoriesInNode(d)
-        if (mapSize(gene_events)) {
-          html_info += "<p style='margin:6px;'></p><b>Genetic events:</b><br/>"
-          keys = Object.keys(gene_events).sort().reverse()
+        var gene_events = d.data.gene_event_categories
+        var gene_events_with_details = d.data.gene_event_categories_details
+        if (gene_events.size) {
+          html_info += "<p style='margin:6px;'></p><b>Gene events:</b><br/>"
+          var keys = Array.from(gene_events.keys()).sort().reverse()
           for (event of keys) {
-            gene_list = Array.from(gene_events_with_details[event]).sort()
-            html_info += capitalizeFirstLetter(event) + ": " + gene_list.slice(0,6).join(', ') 
-            if (gene_list.length > 6) {
+            var gene_list = Array.from(gene_events_with_details.get(event)).sort()
+            html_info += capitalizeFirstLetter(event) + ": " + gene_list.slice(0,max_genes_in_list).join(', ')
+            if (gene_list.length > max_genes_in_list) {
               html_info += "..."
             }
             html_info += "<br/>"
-          } 
+          }
         }
       } else {
         html_info = "root"
@@ -482,10 +483,10 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
         if(!d.data.gene_events) {
           return "white"
         }
-        if (drug_gene_map && target_drug in drug_gene_map) {
-          gene_list = drug_gene_map[target_drug]
+        if (drug_gene_map && drug_gene_map.has(target_drug)) {
+          gene_list = drug_gene_map.get(target_drug)
           for (var gene_1 of gene_list){
-            for (gene_2 of d.data.gene_states){
+            for (var gene_2 of Object.keys(d.data.gene_states)){
               if (gene_2.includes(gene_1)) {
                 return "green"
               }

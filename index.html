@@ -40,11 +40,14 @@
     &nbsp;&nbsp;<a style="text-decoration: none"  href="https://github.com/cbg-ethz/oncotreeVIS" target="new">
       <i class="fa fa-github" style="font-size:48px; color:#353935"></i>&nbsp;&nbsp; </a>
   </div>
+  <div style="background-color: #b4a7d6; height: 60px; padding-top:9px;">
+    &nbsp;&nbsp;<a style="text-decoration: none"  href="" target="new2">
+      <i class="fa fa-file-text-o" style="font-size:40px; color:#353935"></i>&nbsp;&nbsp;&nbsp; </a>
+  </div>
 </div><br/>
 
 <div width="100%" style="font-size: 13px;">
   Select predefined or custom mutation tree cohort: <select id="drop-down-cohort"></select><br/>
-  <input type="file" id="picker" onchange="load()" style="display:none">
 </div><br/>                 
 
 <div width=100% id="container"> </div>
@@ -57,15 +60,21 @@ function load () {
   // Read selected file.
   let reader = new FileReader();
   reader.onload = () => {
-    let data = JSON.parse(reader.result);  
+    let data = JSON.parse(reader.result);
     oncotreeVIS(data, "container")
   };
   reader.readAsText(file);
+
+  e = document.getElementById("drop-down-cohort")
+  var option = document.createElement("option")
+  option.text = file.name
+  option.selected = true
+  e.add(option)
+
 }
 </script>
 
 <script>
-
 datasets = {
     "[CLUSTERED] 123 AML point mutation trees (Morita et al. 2020)": {"data": data_aml_morita, "matching_trees": knn_aml_morita},
     "145 AML joint CN-point mutation trees (COMPASS, Sollier et al. 2022)": {"data": data_aml_compass},
@@ -74,21 +83,72 @@ datasets = {
     "[CLUSTERED] 99 non-small cell lung cancer point mutation trees (TRACERx, Jamal-Hanjani et al. 2017)": {"data": data_tracerx_lung},
     "126 non-small cell lung metastatic cancer point mutation trees (TRACERx421, Al Bakir et al. 2023)": {"data": data_tracerx421},
     //"1,315 Breast cancer mutation trees (Razavi et al. 2018)": {"data": data_brca_razavi},
-    "--> Load custom mutation tree cohort file (specific input format required)": {}
+    "--> Load custom mutation tree cohort file": {}
 }
             
 var drop_down_cohorts = document.getElementById("drop-down-cohort")
-
 Object.keys(datasets).forEach(function (dataset, idx) {
   drop_down_cohorts.options[drop_down_cohorts.options.length] = new Option(dataset, idx);
 })
 
 $('#drop-down-cohort').change(function(){
-  e = document.getElementById("drop-down-cohort")
-  var cohort_name = e.options[e.selectedIndex].text
 
-  if (cohort_name.includes("custom mutation tree cohort")) {
-    $('input[type=file]').trigger('click');
+  custom_file_option_text = "custom mutation tree cohort"
+
+  e = document.getElementById("drop-down-cohort")
+  var last_option = e.options[e.options.length - 1].text
+  if (!last_option.includes(custom_file_option_text)) {
+    e.remove(e.options.length - 1)
+  }
+
+  var cohort_name = e.options[e.selectedIndex].text
+  if (cohort_name.includes(custom_file_option_text)) {
+    //$('input[type=file]').trigger('click');
+    container = document.getElementById("container")
+    container.innerHTML = "<div style='position: absolute; top: 50%; left: 50%; transform: translateX(-50%) translateY(-50%); font-size:13px;'>" +
+        "<table><tr><td>" +
+        "The expected input is a JSON file with the following key values:<p style='margin:6px;'></p>" +
+            "<table width=650px>" +
+            "<tr style='border-bottom: 1px solid darkgray; border-top: 1px solid darkgray'>" +
+            "<td><b>Key</b></td><td style='padding-left:20px'><b>Data structure</b></td></tr>" +
+            "<tr><td style='vertical-align:top'><b>trees</b></td>" +
+            "<td style='padding-left:20px; text-align:justify; vertical-align:top'>" +
+                "Nested data structure representing a tree in JSON format, as used in D3.js and anytree (python) libraries. " +
+                "Each node has one or more child nodes (<i>node.children</i>), except for the leaves. In addition, each node " + 
+                "has the following attributes: <i>node_id</i> (string/int, required), </i>matching_label</i> (required), " +
+                "<i>size_percent</i> (float, optional), <i>metadata</i> (dictionary, optional), <i>gene_events</i> (dictionary, optional), " + 
+                "<i>is_neutral</i> (boolean, optional). The gene_events attribute has two predefined keys (\"mutation\" and \"CNA\"), " +
+                "but any other key names can be used. The values for the \"CNA\" event key are specifically interpreted as amplification " +
+                "or deletion amounts w.r.t. the neutral states. The first three letters of the event key are used " +
+                "in the visualization for displaying a summary for the gene events.<p style='margin:6px;'></p>"+
+                "Example of JSON tree: \"AML-03-001\": {\"tree\": {\"node_id\": 0, \"matching_label\": 0, \"children\": " +
+                "[{\"node_id\": 407, \"matching_label\": 14, \"size_percent\": 0.228, \"gene_events\": {\"FLT3-ITD\": {\"mutation\": \"\"}}, " +
+                "\"children\": [{\"node_id\": 408, \"matching_label\": 5, \"size_percent\": 0.772, \"gene_events\": {\"NPM1\": {\"mutation\": " +
+                "\"p.L287fs\"}}}]}]}, \"metadata\": {\"Chemo\": \"No\", \"Gender\": \"Female\", \"VitalStatus\": \"Dead NOS\", \"age\": 59, "+
+                "\"Diagnosis\": \"AML\", \"Response\": \"CR\"}} <p style='margin:6px;'></p>"+
+                "Examples for gene_events dictionary: \"gene_events\": {\"NPM1\": {\"mutation\": \"p.L287fs\"}, " +
+                "\"AKT3\": {\"CNA\": 2}, \"JAK2\": {\"CNA\": -1}, \"TP53\": {\"CNA\”: \"-\", \"expression\": \"0.34\"}}" +
+                "<p style='margin:6px;'></p>" +
+                "</td></tr>" +
+            "<tr><td style='vertical-align:top'><b>clusters</b></td>" + 
+                "<td style='padding-left:20px'>List of lists of tree ids (strings).<p style='margin:6px;'></p>" +
+                "Example: [['AML-55-001', 'AML-33-001', 'AML-57-001', 'AML-11-001'],  ['AML-77-001'], ['AML-50-001', 'AML-102-001'], … ]" +
+                "<p style='margin:6px;'></p>" +
+                "</td></tr>" +
+            "<tr><td style='vertical-align:top'><b>pairwise_distances</b></td><td style='padding-left:20px'>" +
+                "List of dictionaries where the keys are the tree ids of the pair of trees (strings) and the distance score (float).<p style='margin:6px;'></p>" +
+                "Example: [{'sample_1': 'AML-73-001', 'sample_2': 'AML-22-001', 'distance': 0.6072}, … ]" +
+                "<p style='margin:6px;'></p>" +
+                "</td></tr>" +
+            "<tr style='border-bottom: 1px solid darkgray;'><td style='vertical-align:top'><b>highlighted_genes</b></td><td style='padding-left:20px'>" +
+                "Styles used: bold, italic, uppercase, color code.<p style='margin:6px;'></p>" +
+                "Example: {\"bold\": [\"JAK2\", \"PTEN\", \"TP53\", \"AKT1\"]}" +
+                "<p style='margin:6px;'></p>" +
+                "</td></tr>" +
+          "</table>" +
+          "<br/>The JSON files used for the predefined datasets are available on " +
+          "<a href='https://github.com/cbg-ethz/oncotreeVIS/tree/main/data' target=git>github</a>." +
+        "</td><td style='padding:50px'><b>Load JSON file:</b><p style='margin:6px;'></p><input type=file id='picker' onchange='load()'</td></tr></table></div>"
   } else {
     data = datasets[cohort_name]["data"]
     data["matching_trees"] = datasets[cohort_name]["matching_trees"]
@@ -100,185 +160,5 @@ data = data_aml_morita
 data["matching_trees"] = knn_aml_morita       
 oncotreeVIS(data, "container")
 
-/////// OncotreeVIS LIBRARY
-function oncotreeVIS(data, container_div_id) {
-  var num_max_node_colors = 10
-  var tree_cohort_div_id = "tree_cohort"
-  var tree_info_div_id = "tree_info"
-
-  // Compute additional information from the data.
-  trees = data["trees"]
-
-  // Additional data to all trees.
-  unique_matching_labels_cohort = {} // map {matching_label: bool}
-  for (sample_name in trees) {
-    tree = trees[sample_name]["tree"]
-    matching_labels = getMatchingLabels(tree)
-    for (matching_label of matching_labels) {
-      key = matching_label.toString()
-      if (key in unique_matching_labels_cohort) {
-        unique_matching_labels_cohort[key] = false
-      } else {
-        unique_matching_labels_cohort[key] = true
-      }
-    }
-  }
-
-  display_matching_labels = false
-  num_non_unique_matching_labels = Object.values(unique_matching_labels_cohort).filter(x => x == false).length
-  if(num_non_unique_matching_labels > num_max_node_colors) {
-    display_matching_labels = true
-  }
-  cohort_node_color_map = {}
-  cohort_node_color_generator = new ColorGenerator(node_colors, shuffle=true, transparent_flavour=0.3)
-  for (key in unique_matching_labels_cohort) {
-    if (!unique_matching_labels_cohort[key]) {
-      cohort_node_color_map[key] = cohort_node_color_generator.next()
-    } 
-  }
-
-  for (sample_name in trees) {
-    tree = trees[sample_name]["tree"]
-    // Propagate gene states.
-    populateGeneStates(tree)
-    // Populate the node colors.
-    var node_list = getTreeNodes(trees[sample_name]["tree"])
-    for(node of node_list) {
-      if (node.parent && node.data.matching_label) { // not root.
-        key = node.data.matching_label.toString()
-        if (key in cohort_node_color_map) {
-          node.data.color_in_cohort = cohort_node_color_map[key]
-          node.data.display_node_label_cohort = display_matching_labels
-        }
-      }
-    }
-  }  
-
-  // Clusters.
-  if ("clusters" in data && data["clusters"].length != 0) {
-    clusters = data["clusters"]
-  } else {
-    clusters = [Object.keys(trees)] // One big cluster.
-  }
-
-  // Colors at cluster level.
-  used_colors = {}
-  cluster_color_generator = new ColorGenerator(background_colors, shuffle=false, transparent_flavour=0.7)
-  cluster_node_color_generator = new ColorGenerator(node_colors, shuffle=true, transparent_flavour=0.3)
-  for (const [i, cluster] of clusters.entries()) {
-    conserved_branches_cluster = getBranches(trees[cluster[0]]["tree"])
-    unique_matching_labels_cluster = {}
-    for (sample_name of cluster) {
-      // Cluster colors.
-      trees[sample_name]["cluster_color"] = "white"
-      trees[sample_name]["2d_color"] = "white"
-     
-      // Nodes and branches.
-      tree = trees[sample_name]["tree"]
-      conserved_branches_cluster = conserved_branches_cluster.intersection(getBranches(tree))           
-      matching_labels = getMatchingLabels(tree)
-      for (matching_label of matching_labels) {
-        key = matching_label.toString()
-        if (key in unique_matching_labels_cluster) {
-          unique_matching_labels_cluster[key] = false
-        } else {
-          unique_matching_labels_cluster[key] = true
-        }
-      } 
-    }
-
-    display_matching_labels = false
-    num_non_unique_matching_labels = Object.values(unique_matching_labels_cluster).filter(x => x == false).length
-    if(num_non_unique_matching_labels > num_max_node_colors) {
-      display_matching_labels = true
-    }
-
-    if (cluster.length > 1 && clusters.length > 1) {
-      cluster_color = cluster_color_generator.next()
-      cluster_node_color_map = {}
-      for (key in unique_matching_labels_cluster) {
-        if (!unique_matching_labels_cluster[key]) {
-          if (key in used_colors) {
-            cluster_node_color_map[key] = used_colors[key]
-          } else {
-            color = cluster_node_color_generator.next()
-            cluster_node_color_map[key] = color
-            used_colors[key] = color
-          }
-        } 
-      }
-
-      for (sample_name of cluster) {
-        // Update cluster colors.
-        trees[sample_name]["cluster_color"] = cluster_color
-        trees[sample_name]["2d_color"] = tinycolor(cluster_color).darken(50).toHexString()
-
-        // For each cluster tree populate node colors and conserved branches.
-        for (sample_name of cluster) {
-          var node_list = getTreeNodes(trees[sample_name]["tree"])
-          for(node of node_list) {
-            if(node.parent) { // not root.
-              // Conserved branches.
-              if (conserved_branches_cluster.has(node.parent.data.matching_label + "_" + node.data.matching_label)) {
-                node.data.conserved_parent_node_edge_cluster = true
-              } 
-              // Matching nodes.
-              if (node.parent && node.data.matching_label) {
-                key = node.data.matching_label.toString()
-                if (key in cluster_node_color_map) { 
-                  node.data.color_in_cluster = cluster_node_color_map[key]
-                  node.data.display_node_label_cluster = display_matching_labels
-                }
-              } 
-            }
-          }
-        }
-      }
-
-      // Cluster metadata.
-      var sample_metadata_map = {}
-      for (sample_name of cluster) {
-        if ("metadata" in trees[sample_name]) {
-          sample_metadata = trees[sample_name]["metadata"]
-          sample_metadata_map[sample_name] = sample_metadata
-        }
-      }
-      [sample_metadata_colors, metadata_color_map] = getMetadataColorMap(sample_metadata_map)
-      table_color_codes = getColorCodesTable(metadata_color_map)
-      trees[cluster[0]]["sample_metadata_colors"] = sample_metadata_colors
-      trees[cluster[0]]["table_color_codes"] = table_color_codes
-    }
-  }
-  // END Populate additional data.
-
-  var useful_variables = {
-    "tree_cohort_div_id": tree_cohort_div_id, 
-    "tree_info_div_id": tree_info_div_id,
-    "data": data,
-    "sorting": 0,
-    "matching": 0
-  }
-  
-  // DGIdb data.
-  var gene_drug_map = parseGeneDrugInteractions(gene_drug_interaction)
-
-  // Create the HTML elements. 
-  addHTMLElements(container_div_id, useful_variables)
-  
-  // Populate with tree data. 
-  populateTreeView(useful_variables)
-}
-
-$(function(){
-  var container = $('#tree_info');
-  var initial_position = container.position().top
-
-  $(document).scroll(function() {
-    scroll_offset = $(document).scrollTop()
-    container.css('top', Math.max(0, initial_position - scroll_offset));
-  });
-});
-
 </script>
-
 </body>

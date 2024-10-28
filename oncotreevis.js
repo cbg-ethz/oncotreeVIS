@@ -1,4 +1,210 @@
 ///////////////////////
+//// Main function ////
+///////////////////////
+function oncotreeVIS(data, container_div_id) {
+  var num_max_node_colors = 10
+  var tree_cohort_div_id = "tree_cohort"
+  var tree_info_div_id = "tree_info"
+
+  // Compute additional information from the data.
+  trees = data["trees"]
+
+  // Convert future key values (`matching_label`) to strings. 
+  for (var sample_name in trees) {
+    var tree_json = trees[sample_name]["tree"]
+    var node_list = getTreeNodes(tree_json)
+    for (var node of node_list) {    
+      if (node.data.matching_label) {
+        node.data.matching_label = node.data.matching_label.toString()
+      }
+    }
+  }
+
+  // Add data to all trees.
+  unique_matching_labels_cohort = {} // map {matching_label: bool}
+  for (sample_name in trees) {
+    tree = trees[sample_name]["tree"]
+    matching_labels = getMatchingLabels(tree)
+    for (matching_label of matching_labels) {
+      key = matching_label.toString()
+      if (key in unique_matching_labels_cohort) {
+        unique_matching_labels_cohort[key] = false
+      } else {
+        unique_matching_labels_cohort[key] = true
+      }
+    }
+  }
+
+  display_matching_labels = false
+  num_non_unique_matching_labels = Object.values(unique_matching_labels_cohort).filter(x => x == false).length
+  if(num_non_unique_matching_labels > num_max_node_colors) {
+    display_matching_labels = true
+  }
+  cohort_node_color_map = {}
+  cohort_node_color_generator = new ColorGenerator(node_colors, shuffle=true, transparent_flavour=0.3)
+  for (key in unique_matching_labels_cohort) {
+    if (!unique_matching_labels_cohort[key]) {
+      cohort_node_color_map[key] = cohort_node_color_generator.next()
+    } 
+  }
+
+  for (sample_name in trees) {
+    tree = trees[sample_name]["tree"]
+    // Propagate gene states.
+    populateGeneStates(tree)
+    // Populate the node colors.
+    var node_list = getTreeNodes(trees[sample_name]["tree"])
+    for(node of node_list) {
+      if (node.parent && node.data.matching_label) { // not root.
+        key = node.data.matching_label
+        if (key in cohort_node_color_map) {
+          node.data.color_in_cohort = cohort_node_color_map[key]
+          node.data.display_node_label_cohort = display_matching_labels
+        }
+      }
+    }
+  }  
+
+  // Clusters.
+  if ("clusters" in data && data["clusters"].length != 0) {
+    clusters = data["clusters"]
+  } else {
+    clusters = [Object.keys(trees)] // One big cluster.
+  }
+
+  // Colors at cluster level.
+  used_colors = {}
+  cluster_color_generator = new ColorGenerator(background_colors, shuffle=false, transparent_flavour=0.7)
+  cluster_node_color_generator = new ColorGenerator(node_colors, shuffle=true, transparent_flavour=0.3)
+  for (const [i, cluster] of clusters.entries()) {
+    conserved_branches_cluster = getBranches(trees[cluster[0]]["tree"])
+    unique_matching_labels_cluster = {}
+    for (sample_name of cluster) {
+      // Cluster colors.
+      trees[sample_name]["cluster_color"] = "white"
+      trees[sample_name]["2d_color"] = "white"
+     
+      // Nodes and branches.
+      tree = trees[sample_name]["tree"]
+      conserved_branches_cluster = conserved_branches_cluster.intersection(getBranches(tree))           
+      matching_labels = getMatchingLabels(tree)
+      for (matching_label of matching_labels) {
+        key = matching_label
+        if (key in unique_matching_labels_cluster) {
+          unique_matching_labels_cluster[key] = false
+        } else {
+          unique_matching_labels_cluster[key] = true
+        }
+      } 
+    }
+
+    display_matching_labels = false
+    num_non_unique_matching_labels = Object.values(unique_matching_labels_cluster).filter(x => x == false).length
+    if(num_non_unique_matching_labels > num_max_node_colors) {
+      display_matching_labels = true
+    }
+
+    var intersecting_clones = new Map()
+    if (cluster.length > 1 && clusters.length > 1) {
+      cluster_color = cluster_color_generator.next()
+      var cluster_node_color_map = new Map() // matching_label:color
+      for (key in unique_matching_labels_cluster) {
+        if (!unique_matching_labels_cluster[key]) {
+          if (key in used_colors) {
+            cluster_node_color_map.set(key, used_colors[key])
+          } else {
+            color = cluster_node_color_generator.next()
+            cluster_node_color_map.set(key, color)
+            used_colors[key] = color
+          }
+        } 
+      }
+
+      for (sample_name of cluster) {
+        // Update cluster colors.
+        trees[sample_name]["cluster_color"] = cluster_color
+        trees[sample_name]["2d_color"] = tinycolor(cluster_color).darken(50).toHexString()
+
+        // For each cluster tree populate node colors and conserved branches
+        // and compute common cluster events.
+        var node_list = getTreeNodes(trees[sample_name]["tree"])
+        for (var node of node_list) {
+          // Common cluster events
+          if (node.data.matching_label && node.data.gene_events) {
+            var matching_label_key = node.data.matching_label
+            if (cluster_node_color_map.has(matching_label_key)) {
+              var color = cluster_node_color_map.get(matching_label_key)
+              if (!(intersecting_clones.has(color))) {
+                var empty_array = new Array() 
+                intersecting_clones.set(color, empty_array)
+              }
+              var arr = intersecting_clones.get(color)
+              arr.push(node.data.gene_events)
+              intersecting_clones.set(color, arr)
+            }
+          }
+        }
+        for (var node of node_list) {
+          if(node.parent) { // not root.
+            // Conserved branches.
+            if (conserved_branches_cluster.has(node.parent.data.matching_label + "_" + node.data.matching_label)) {
+              node.data.conserved_parent_node_edge_cluster = true
+            } 
+            // Matching nodes.
+            if (node.parent && node.data.matching_label) {
+              key = node.data.matching_label
+              if (cluster_node_color_map.has(key)) { 
+                node.data.color_in_cluster = cluster_node_color_map.get(key)
+                node.data.display_node_label_cluster = display_matching_labels
+              }
+            } 
+          }
+        }
+      }
+      // Compute gene event intersection.
+      for (let [color, list] of intersecting_clones.entries()) {
+        intersection = computeGeneEventIntersection(list)
+        intersecting_clones.set(color, intersection)
+      }
+    }
+
+    if (cluster.length > 1) {
+      // Cluster metadata.
+      var sample_metadata_map = {}
+      for (sample_name of cluster) {
+        if ("metadata" in trees[sample_name]) {
+          sample_metadata = trees[sample_name]["metadata"]
+          sample_metadata_map[sample_name] = sample_metadata
+        }
+      }
+      [sample_metadata_colors, metadata_color_map] = getMetadataColorMap(sample_metadata_map)
+      table_color_codes = getColorCodesTable(metadata_color_map)
+      trees[cluster[0]]["sample_metadata_colors"] = sample_metadata_colors
+      trees[cluster[0]]["table_color_codes"] = table_color_codes
+      trees[cluster[0]]["matching_nodes_cluster_details"] = intersecting_clones
+    }
+  }
+  // END Populate additional data.
+
+  var useful_variables = {
+    "tree_cohort_div_id": tree_cohort_div_id, 
+    "tree_info_div_id": tree_info_div_id,
+    "data": data,
+    "sorting": 0,
+    "matching": 0
+  }
+  
+  // DGIdb data.
+  var gene_drug_map = parseGeneDrugInteractions(gene_drug_interaction)
+
+  // Create the HTML elements. 
+  addHTMLElements(container_div_id, useful_variables)
+  
+  // Populate with tree data. 
+  populateTreeView(useful_variables)
+}
+
+///////////////////////
 //// HTML elements ////
 ///////////////////////
 function createBlueBorder(){
@@ -56,15 +262,15 @@ function addHTMLElements(container_div_id, args) {
 
   // Trev view buttons.
   var tree_view_div = createBlueBorder() 
-
   var tree_view_button = document.createElement('button')
   tree_view_button.className = "button-15"
   tree_view_button.addEventListener('click', ()=>{ populateTreeView(args); })
   tree_view_button.innerHTML = '<i class="fa fa-tree" style="font-size:19px"></i>&nbsp;TREE VIEW'
   addInfoBoxToElement(tree_view_button, "Show mutation trees side by side, grouped by a given clustering (by default). " + 
-      "Nodes correspond to clones. Each node (also shown on the incoming edges) is labeled with the set of provided gene mutations (SNVs, CNAs, etc) acquired by the subclone. "+
+      "Nodes correspond to clones of different sizes. Each node is labeled with the " +
+      "set of provided gene mutations (SNVs, CNAs, etc) acquired by the subclone (also displayed on the incoming edges). "+
       "Matching clones and conserved edges are highlighted. Neutral clones (if specified) are colored in " +
-      "<font color=lightyellow><b>lightyellow</b></font>.", bg_color="#0868d2", width=360, margin_left=135, position="top", line_height="13px")
+      "<font color=lightyellow><b>lightyellow</b></font>.", bg_color="#0868d2", width=365, margin_left=135, position="top", line_height="13px")
   tree_view_div.appendChild(tree_view_button)
 
   // Button sort trees.
@@ -168,14 +374,18 @@ function addHTMLElements(container_div_id, args) {
   tree_info_div.style.fontSize = "13px"
   tree_info_div.style.position = "fixed"
   tree_info_div.style.width = "24%"
-  tree_info_div.style.maxWidth = "430px"
+  //tree_info_div.style.maxWidth = "430px"
   tree_info_div.style.minWidth = "300px"
   tree_info_div.style.padding = "7px"
   tree_info_div.style.float = "right"
-  tree_info_div.style.left = "calc(73% + 2px)"
-  tree_info_div.style.bottom = "3px"
+  //tree_info_div.style.left = "calc(73% + 2px)"
+  tree_info_div.style.right = "15px"
+  tree_info_div.style.bottom = "10px"
   tree_info_div.style.overflowX = "scroll"
   tree_info_div.style.overflowY = "scroll"
+  tree_info_div.style.overflow = "auto"
+  tree_info_div.style.direction = "rtl"
+  tree_info_div.style.resize = "horizontal"
   tree_info_div.innerHTML = ""
   outer_div.appendChild(tree_info_div)
   div_container.appendChild(outer_div) 
@@ -209,10 +419,6 @@ function populateTreeView(args){
   }
 
   knn = data["matching_trees"] 
-  display_text_label = false
-  if ("display_text_label" in data && data["display_text_label"]){
-    display_text_label = true
-  }
 
   // Prepare tree cohort container.
   var tree_cohort_div_id = args.tree_cohort_div_id
@@ -221,8 +427,14 @@ function populateTreeView(args){
   var tree_info_div_id = args.tree_info_div_id
   tree_info_div = document.getElementById(tree_info_div_id)
   tree_info_div.innerHTML = '<div style="text-align:center;height:100%;display:flex;flex-direction:row;' +
-      'align-items:center;justify-content:center;"><i>Click on the trees' +
-      '<br/>or on the "show cluster details" icons<br/>to visualize additional information.</i></div>'
+      'align-items:center;justify-content:center;"><i>The tree clusters are indicated by<br/>' +
+      'different background <font color=#A87676>c</font><font color=#E493B3>o</font><font color=#B784B7>l</font><font color=#8E7AB5>o</font>'+
+      '<font color=#F6995C>r</font><font color=#88AB8E>s</font>. <br/>' +
+      ' Zoom out <i class="fa fa-search-minus"></i> to get the<br/>full overview of the tree clusters.<br/><br/>***<br/><br/>' +
+      'Click on the trees to visualize<br/>details of each subclone.<br/><br/>' +
+      'Click on the " <i class="fa fa-desktop fa-sm"></i> show cluster details" icons<br/>' +
+      'to visualize additional cluster information.'+
+      '</i></div>'
   tree_info_div.style.backgroundColor = "white"
 
   for (const [i, cluster] of clusters.entries()) {
@@ -260,7 +472,6 @@ function populateTreeView(args){
 
     // Populate click events.
     cluster.forEach(function(sample_name, j) {
-    //for (const [j, sample_name] of cluster.entries()) {
       tree_data = trees[sample_name]
       tree_json = tree_data["tree"]
       if (args.sorting == 0 && clusters.length > 1) {
@@ -284,11 +495,11 @@ function populateTreeView(args){
         var click_cluster_details_div = document.createElement("div")
         click_cluster_details_div.style.cursor = "pointer"
         var text_color = tinycolor(cluster_color).darken(30).desaturate(40).toHexString()
-        click_cluster_details_div.innerHTML = '&nbsp;<i class="fa fa-desktop fa-sm" style="color:' + text_color +
-          '"></i> <i><font color="' + text_color  + '"> &thinsp; show cluster details </i>'
+        click_cluster_details_div.innerHTML = '&nbsp;<b><i class="fa fa-desktop fa-sm" style="color:' + text_color +
+          '"></i> <i><font color="' + text_color  + '"> &thinsp; show cluster details </i></b>'
 
         args_cluster = {}
-        args_cluster["matching_nodes_details"] = {} // TODO matching_clones_color_map
+        args_cluster["matching_nodes_details"] = trees[cluster[0]]["matching_nodes_cluster_details"]
         args_cluster["tree_info_div_id"] = tree_info_div_id
         args_cluster["cluster_bg_color"] = cluster_color
         args_cluster["cluster_metadata"] = trees[cluster[0]]["sample_metadata_colors"]
@@ -311,6 +522,17 @@ function populateTreeView(args){
       displayTree(tree_div_id, sample_name, tree_json, "", "", null, tree_info_view=false)
     })
   }
+
+  $(function(){
+    var container = $('#' + tree_info_div_id);
+    var initial_position = container.position().top
+  
+    $(document).scroll(function() {
+      scroll_offset = $(document).scrollTop()
+      container.css('top', Math.max(0, initial_position - scroll_offset));
+    });
+  });
+
 }
 
 //////////////
@@ -329,29 +551,15 @@ const sleep = (milliseconds) => {
   return new Promise(resolve => setTimeout(resolve, milliseconds))
 }
 
-// Read sample_map
-function loadFileVariable(filename){
-  var script = document.createElement("script");
-  script.src = filename;
-  document.head.appendChild(script);
-  sleep(2000).then(() => {})
-}
-
-const objectToMap = obj => {
-   const keys = Object.keys(obj);
-   const map = new Map();
-   for (let i = 0; i < keys.length; i++){
-      //inserting new key value pair inside map
-      map.set(keys[i], obj[keys[i]]);
-   };
-   return map;
-};
-
 function deepCopy(oldValue) {
   var newValue
   strValue = JSON.stringify(oldValue)
   return newValue = JSON.parse(strValue)
 }
+
+function mapSize(map) {
+  return Object.keys(map).length
+} 
 
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -371,10 +579,6 @@ function linspace(startValue, stopValue, cardinality) {
 
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
-}
-
-function mapSize(map) {
-  return Object.keys(map).length
 }
 
 function round(value, precision) {
@@ -439,32 +643,32 @@ function CNValueToInt(value) {
   }
 }
 
-function updateGeneStates(gene_events, parent_gene_states) {
-  gene_events_map = objectToMap(gene_events)
-  var new_gene_states = new Map(parent_gene_states)
+function updateGeneStates(gene_events_map, parent_gene_states) {
+  var new_gene_states = deepCopy(parent_gene_states)
   // Update the new_gene_states with each current gene event.
-  for (let [gene, events] of gene_events_map.entries()) {
-    events_map = objectToMap(events)
-    if (!(new_gene_states.has(gene))) {
-      new_gene_states.set(gene, events_map)
+  for (const [gene, events_map] of Object.entries(gene_events_map)) {
+    if (!(gene in new_gene_states)) {
+      new_gene_states[gene] = deepCopy(events_map)
     } else {
-      for (let [old_event_type, old_value] of new_gene_states.get(gene).entries()) {
-        for (let [new_event_type, new_value] of events_map.entries()) {
+      for (const [old_event_type, old_value] of Object.entries(new_gene_states[gene])) {
+        for (const [new_event_type, new_value] of Object.entries(events_map)) {
           // Apply each event from gene_events
           if(old_event_type == new_event_type) {
             if (old_event_type == "CNA") {
               var new_cn_value = CNValueToInt(old_value) + CNValueToInt(new_value)
               if (new_cn_value == 0) {
-                events_map.delete("CNA")
-                if (events_map.size == 0) {
-                  new_gene_states.delete(gene)
+                delete new_gene_states[gene]["CNA"]
+                if (mapSize(new_gene_states[gene]) == 0) {
+                  delete new_gene_states[gene]
                 }
               } else {
-                events_map.set("CNA", new_cn_value)
+                events_map["CNA"] = new_cn_value
               }
             } else {
-              new_gene_states.get(gene).set(new_event_type,  old_value + ";" + new_value)
+              new_gene_states[gene][new_event_type] =  old_value + ";" + new_value
             }
+          } else {
+            new_gene_states[gene][new_event_type] = new_value
           }
         }
       }
@@ -481,8 +685,9 @@ function populateGeneStates(tree){
     if (node.data.gene_events){
       const [gene_events, gene_events_with_details] = getGeneCategoriesInNode(node)
       node.data.gene_event_categories = gene_events
+      node.data.gene_event_categories_details = gene_events_with_details
       if (!node.parent) { // root
-        node.data.gene_states = objectToMap(node.data.gene_events)
+        node.data.gene_states = node.data.gene_events
       } else {
         node.data.gene_states = updateGeneStates(node.data.gene_events, node.parent.data.gene_states)
       }
@@ -539,7 +744,7 @@ function addInfoBoxToElement(elem, text, bg_color="#0868d2", width=250, margin_l
 function createInfoTooltip() {
   var div = document.createElement('span')
   div.classList.add("info-tooltip")
-  div.innerHTML = "&nbsp;<i class='fa fa-question-circle' style='color:onyx'></i>"
+  div.innerHTML = "&nbsp;<i class='fa fa-question-circle' style='color:onyx; font-size:17px;'></i>"
   return div
 }
 
@@ -600,8 +805,9 @@ function showTreeInfo(sample_name, args) {
   var tree_info_div = document.getElementById(tree_info_div_id)
   tree_info_div.innerHTML = ""
   tree_info_div.style.border = "1px solid lightgray"
-
   tree_info_div.style.backgroundColor = "white"
+  tree_info_div.style.width = "24%"
+  tree_info_div.style.minWidth = "300px"
 
   // Compute gene list and variables related to the selected target gene. 
   const [gene_categories, gene_categories_with_details] = getGeneCategoriesInTree(tree_object)
@@ -610,20 +816,21 @@ function showTreeInfo(sample_name, args) {
   var drug_list = []
   var target_gene = ""
   var target_drug = ""
-  if (mapSize(gene_categories)) {
-    var gene_list = Array.from(Object.values(gene_categories)[0])
-    var gene_list_with_details = Array.from(Object.values(gene_categories_with_details)[0])
-    drug_gene_map = getDrugToGeneMap(gene_list, gene_drug_map)
-    drug_list = findDrugsAffectingGeneList(gene_list, drug_gene_map, tree_object)
+  if (gene_categories.size) {
+    var gene_list = Array.from(Array.from(gene_categories.values())[0])
+    var gene_list_with_details = Array.from(Array.from(gene_categories_with_details.values())[0])
+    var drug_gene_map = getDrugToGeneMap(gene_list, gene_drug_map)
+    var drug_list = findDrugsAffectingGeneList(gene_list, drug_gene_map, tree_object)
   }
 
   // Display sample name.
   header_sample_name = createInfoHeader("<strong><b>" + sample_name + "</b></strong>")
+  header_sample_name.style.direction = "ltr"
   tree_info_div.appendChild(header_sample_name)
   appendLineBreak(tree_info_div)
 
   // Gene selection.
-  if (mapSize(gene_categories)) {
+  if (gene_categories.size) {
     gene_selection_dropdown = document.createElement("select")
     gene_selection_dropdown.setAttribute("id", "gene_selection")
     gene_selection_dropdown.classList.add("gene_selection")
@@ -631,13 +838,14 @@ function showTreeInfo(sample_name, args) {
     option = document.createElement('option');
     option.textContent = "-- Select target gene event --"
     gene_selection_dropdown.appendChild(option);
-    keys = Object.keys(gene_categories).sort()
+    keys = Array.from(gene_categories.keys()).sort()
     for (event of keys) {
-      array = gene_categories[event]
+      array = gene_categories.get(event)
       sorted_genes = Array.from(array).sort()
       addGeneToGeneList(gene_selection_dropdown, sorted_genes, event)
     }
     div_container = document.createElement('div')
+    div_container.style.direction = "ltr"
     div_container.style.width = "fit-content"
     div_container.style.margin = "auto"
     div_container.appendChild(gene_selection_dropdown)
@@ -670,6 +878,7 @@ function showTreeInfo(sample_name, args) {
       drug_selection_dropdown.options[drug_selection_dropdown.options.length] = new Option(drug_short_name, idx);
     }
     div_container = document.createElement('div')
+    div_container.style.direction = "ltr"
     div_container.style.width = "fit-content"
     div_container.style.margin = "auto"
     div_container.appendChild(drug_selection_dropdown)
@@ -691,19 +900,22 @@ function showTreeInfo(sample_name, args) {
   // Display tree.
   var tree_box_id = "tree_box"
   var tree_box_div = createDivContainer(tree_box_id)
+  tree_box_div.style.direction = "ltr"
   tree_box_div.style.display = 'block'
   tree_info_div.appendChild(tree_box_div)
   appendLineBreak(tree_info_div)
   tree_div_height = Math.min(400, 2*screen.height/3)
-  displayTree(tree_box_id, "", tree_object, target_gene, target_drug, drug_gene_map, height=tree_div_height)
+  displayTree(tree_box_id, sample_name, tree_object, target_gene, target_drug, drug_gene_map, height=tree_div_height)
 
   // Displayed metadata.
   if (metadata && mapSize(metadata)) {
     var header_metadata = createInfoHeader("<b>Clinical data</b>")
+    header_metadata.style.direction = "ltr"
     tree_info_div.appendChild(header_metadata)
 
     var metadata_box_id = "metadata"
     var metadata_box_div = createDivContainer(metadata_box_id)
+    metadata_box_div.style.direction = "ltr"
     metadata_box_div.style.display = 'none'
     for (const [key, value] of Object.entries(metadata)) {
       metadata_box_div.innerHTML += '<i><b>' + key + '</b>: ' + value + '</i></br>'
@@ -716,10 +928,12 @@ function showTreeInfo(sample_name, args) {
   // Top DGIdb drugs.
   if (drug_list.length) {
     var header_top_drugs = createInfoHeader("<b>Top DGIdb drugs associated with target gene</b>")
+    header_top_drugs.style.direction = "ltr"
     tree_info_div.appendChild(header_top_drugs)
 
     var top_drugs_box_id = "top_drugs"
     var top_drugs_box_div = createDivContainer(top_drugs_box_id)
+    top_drugs_box_div.style.direction = "ltr"
     top_drugs_box_div.style.display = 'none'
     top_drugs_box_div.innerHTML = populateGeneDrugInfoHTML(target_gene, gene_drug_map)
     tree_info_div.appendChild(top_drugs_box_div)
@@ -730,10 +944,12 @@ function showTreeInfo(sample_name, args) {
   // kNN matching trees.
   if (knn) { 
     var header_knn = createInfoHeader("<b>K-nearest tree neighbors</b>")
+    header_knn.style.direction = "ltr"
     tree_info_div.appendChild(header_knn)
 
     var knn_box_id = "knn"
     var knn_box_div = createDivContainer(knn_box_id)
+    knn_box_div.style.direction = "ltr"
     knn_box_div.style.display = 'none'
     tree_info_div.appendChild(knn_box_div)
     for (const [id, data] of Object.entries(knn)) {
@@ -759,63 +975,99 @@ function showTreeInfo(sample_name, args) {
     updateTree)
 }
 
+function getEventLabel(event, value) {
+  if (event == "CNA") {
+    if (parseInt(value) > 0 || value == "+") {
+      return "amplified"
+    }
+    else if (parseInt(value) < 0 || value == "-") {
+      //if (parseInt(value) < 0) {
+      //  return "deleted " + parseInt(value).toString()
+      //}
+      return "deleted"
+    }
+    else {
+      return value
+    }
+  }
+  return event
+}
+
+function geneEventMapToEventGeneMap(gene_events_map) {
+  map = new Map()
+  for (const [gene, events_map] of Object.entries(gene_events_map)) {
+    for (const [event, value] of Object.entries(events_map)) {
+      var event_type = getEventLabel(event, value)
+      if (!(map.has(event_type))) {
+        map.set(event_type, new Set())
+      }
+      map_set = map.get(event_type)
+      map_set.add(gene)   
+      map.set(event_type, map_set)
+    }
+  }
+  return map
+}
+
 function getGeneCategoriesInNode(node) {
-  var gene_categories = {}
-  var gene_categories_with_details = {}
+  var gene_categories = new Map()
+  var gene_categories_with_details = new Map()
   if (node.data.gene_events){
-    gene_map = objectToMap(node.data.gene_events)
-    gene_map.forEach((events, gene) => {
-      events = objectToMap(events)
-      events.forEach((value, event) => {
-        label = event
-        if (event == "CNA") {
-          if (parseInt(value) > 0 || value == "+") {
-            label = "amplified"
-          }
-          else if (parseInt(value) < 0 || value == "-") {
-            label = "deleted"
-          }
-          else {
-            label = value
-          }
+    for (const [gene, events] of Object.entries(node.data.gene_events)) {
+      for (const [event, value] of Object.entries(events)) {
+        var label = getEventLabel(event, value)
+        if (!(gene_categories.has(label))) {
+          gene_categories.set(label, new Set())
+          gene_categories_with_details.set(label, new Set())
         }
-        if (!(label in gene_categories)) {
-          gene_categories[label] = new Set()
-          gene_categories_with_details[label] = new Set()
-        }
-        gene_categories[label].add(gene)
+        gene_categories.get(label).add(gene)
         if (event == "CNA") {
-          gene_categories_with_details[label].add(gene)
+          gene_categories_with_details.get(label).add(gene)
         } else {
           gene_string = gene
           if (value) {
             gene_string += "_" + value
           }
-          gene_categories_with_details[label].add(gene_string)
+          gene_categories_with_details.get(label).add(gene_string)
         }
-      })
-    })
+      }
+    }
   }
   return [gene_categories, gene_categories_with_details]
 }
 
 function getGeneCategoriesInTree(tree_object) {
   var node_list = getTreeNodes(tree_object)
-  gene_categories = {}
-  gene_categories_with_details = {}
+  gene_categories = new Map()
+  gene_categories_with_details = new Map()
   for (node of node_list) {
     const [node_gene_events, node_gene_events_with_details] = getGeneCategoriesInNode(node)
-    for (label in node_gene_events) {
-      if (!(label in gene_categories)) {
-        gene_categories[label] = node_gene_events[label]
-        gene_categories_with_details[label] = node_gene_events_with_details[label]
+    for (let [label, set] of node_gene_events.entries()) {
+      if (!(gene_categories.has(label))) {
+        gene_categories.set(label, set)
+        gene_categories_with_details.set(label, node_gene_events_with_details.get(label))
       } else {
-        gene_categories[label] = gene_categories[label].union(node_gene_events[label])
-        gene_categories_with_details[label] = gene_categories[label].union(node_gene_events[label])
+        gene_categories.set(label, gene_categories.get(label).union(set))
+        gene_categories_with_details.set(label, gene_categories.get(label).union(node_gene_events.get(label)))
       }
     }
   }
   return [gene_categories, gene_categories_with_details]
+}
+
+function computeGeneEventIntersection(list_gene_events){
+  event_categories = {}
+  set_0 = geneEventMapToEventGeneMap(list_gene_events[0])
+  for (var gene_events of list_gene_events.slice(1,list_gene_events.length+1)){
+    set = geneEventMapToEventGeneMap(gene_events)
+    for (let [event, gene_set] of set.entries()) {
+      if (set_0.has(event)) {
+        intersection = set_0.get(event).intersection(gene_set)
+        set_0.set(event,intersection)
+      }
+    }
+  }
+  return set_0
 }
 
 function getSeletedItem(select_element) {
@@ -842,7 +1094,7 @@ function getCellCountForGene(tree_object, target_gene) {
   var cell_percentage = 0
   for (var node of node_list) {
     if (node.data.gene_states) {
-      if (node.data.gene_states.has(target_gene)) {
+      if (target_gene in node.data.gene_states) {
         if (node.data.size_percent) {
           cell_percentage += node.data.size_percent 
         } else {
@@ -855,15 +1107,15 @@ function getCellCountForGene(tree_object, target_gene) {
 }
 
 function getCellCountForDrugInteraction(tree_object, target_drug, drug_gene_map) {
-  if(!(target_drug in drug_gene_map)) {
+  if(!(drug_gene_map.has(target_drug))) {
     return 0
   }
   var node_list = getTreeNodes(tree_object)
-  var gene_list = objectToMap(drug_gene_map).get(target_drug)
+  var gene_list = drug_gene_map.get(target_drug)
   var cell_percentage = 0
   for (node of node_list) {
     if (node.data.gene_events){
-      node_genes = Array.from(node.data.gene_states.keys())
+      node_genes = Array.from(Object.keys(node.data.gene_states))
       for (var gene_1 of gene_list){
         if (node_genes.includes(gene_1)) {
           cell_percentage += node.data.size_percent
@@ -892,7 +1144,7 @@ function updateTree(event) {
 
   var drug_dropdown = document.getElementById(drug_dropdown_id)
   var target_drug = drug_name_map[drug_dropdown.options[drug_dropdown.selectedIndex].text]
-  target_drug_cell_percent = getCellCountForDrugInteraction(tree_object, target_drug, drug_gene_map)  
+  target_drug_cell_percent = getCellCountForDrugInteraction(tree_object, target_drug, drug_gene_map) 
 
   document.getElementById(tree_div_id).innerHTML = ""
   displayTree(tree_div_id, "", tree_object, target_gene, target_drug, drug_gene_map, height=tree_div_height) 
@@ -913,7 +1165,7 @@ function updateTree(event) {
   }
   document.getElementById(tree_div_id).append(cell_count_div)
 
-  html_string = populateGeneDrugInfoHTML(target_gene, gene_drug_map) 
+  html_string = populateGeneDrugInfoHTML(target_gene, gene_drug_map)
   document.getElementById(dgi_div_id).innerHTML = html_string
 } 
 
@@ -921,17 +1173,16 @@ function populateGeneDrugInfoHTML(target_gene, gene_drug_map) {
   if (target_gene == "") {
     return "No target gene selected.<br/>"
   }
-  var drugs = gene_drug_map[target_gene]
-  if (!(target_gene in gene_drug_map)) {
+  var drugs = gene_drug_map.get(target_gene)
+  if (!(gene_drug_map.has(target_gene))) {
     gene_without_delimiter = target_gene.split(/_|-/)
-    if (gene_without_delimiter.length > 1 && gene_without_delimiter[0] in gene_drug_map) {
-      drugs = gene_drug_map[gene_without_delimiter[0]]
+    if (gene_without_delimiter.length > 1 && gene_drug_map.has(gene_without_delimiter[0])) {
+      drugs = gene_drug_map.get(gene_without_delimiter[0])
     }
     else {
       return "No drugs associated with target gene.<br/>"
     }
   }
-
   drugs.sort(function(a, b){return b["drug_score"] - a["drug_score"]});
   activators = []
   inhibitors = []
@@ -989,40 +1240,40 @@ function populateGeneDrugInfoHTML(target_gene, gene_drug_map) {
 /////////////////////
 function parseGeneDrugInteractions(gene_drug_interaction){
   // Returns a map with gene key and drug info value.
-  gene_drug_map = {}
+  gene_drug_map = new Map()
   for (var item of gene_drug_interaction["matchedTerms"]) {
     gene = item["searchTerm"]
-    gene_drug_map[gene] = []
+    gene_drug_map.set(gene, [])
     for (var drug of item["interactions"])  {
       drug_info = {}
       drug_info["drug_name"] = drug.drugName
       drug_info["interaction_types"] = drug.interactionTypes
       drug_info["drug_sources"] = drug.sources
       drug_info["drug_score"] = drug.score
-      gene_drug_map[gene].push(drug_info)
+      gene_drug_map.get(gene).push(drug_info)
     }
   }
   return gene_drug_map
 }
 
 function getDrugToGeneMap(gene_list, gene_drug_map) {
-  var drug_gene_map = {}
+  var drug_gene_map = new Map()
   for (var gene of gene_list){
-    if(gene in gene_drug_map) {
-      for (var drug of gene_drug_map[gene]){
+    if(gene_drug_map.has(gene)) {
+      for (var drug of gene_drug_map.get(gene)){
         if(drug["drug_score"] < 3) {
           continue
         }
         drug_name = drug.drug_name.substring(0,30)
-        if (drug_name in drug_gene_map) {
-          drug_gene_map[drug_name].push(gene)
+        if (drug_gene_map.has(drug_name)) {
+          drug_gene_map.get(drug_name).push(gene)
         }
         else {
-          drug_gene_map[drug_name] = [gene]
+          drug_gene_map.set(drug_name, [gene])
         }
       }
     }
-  } 
+  }
   return drug_gene_map
 }
 
@@ -1032,8 +1283,7 @@ function custom_compare (drug_1, drug_2) {
 
 function findDrugsAffectingGeneList(tumor_gene_list, drug_gene_map, tree_object) {
   var drug_cnt_list = []
-  for (drug in drug_gene_map) {
-    drug_gene_list = drug_gene_map[drug]
+  for (let [drug, drug_gene_list] of drug_gene_map.entries()) {
     var cells_affecte_by_drug = 0
     for (var tumor_gene of tumor_gene_list) {
       if (drug_gene_list.includes(tumor_gene)) {
@@ -1093,17 +1343,33 @@ function isAntibody(interaction_types) {
 ///////////////////////////////
 //// Populate cluster info ////
 ///////////////////////////////
+function applyTextStyle(gene, highlighted_genes) {
+  if (!highlighted_genes || !(gene in highlighted_genes)) {
+    return gene
+  }
+  style = highlighted_genes[gene]
+  if (style == "bold") {
+    return "<b>" + text + "</b>"
+  } else if (style == "italic") {
+    return "<i>" + text + "</i>"
+  } else {
+    return "<font color=" + style + ">" + text + "</font>"
+  }
+}
 function showClusterInfo(args) {
   var cluster_bg_color = args.cluster_bg_color
   var cluster_metadata = args.cluster_metadata
   var table_color_codes = args.table_color_codes
   var node_intersections = args.node_intersections 
   var matching_nodes_details = args.matching_nodes_details
+  var highlighted_genes = args.highlighted_genes
 
   var tree_info_div_id = args.tree_info_div_id
   var tree_info_div = document.getElementById(tree_info_div_id)
   tree_info_div.innerHTML = ""
   tree_info_div.style.backgroundColor = cluster_bg_color
+  tree_info_div.style.width = "24%"
+  tree_info_div.style.minWidth = "300px"
 
   metadata_found = false
   for (sample_name in cluster_metadata){
@@ -1118,24 +1384,42 @@ function showClusterInfo(args) {
     return; 
   }
 
-  /*tree_info_div.innerHTML = "<strong style='background-color:#d2cae6; display:block;'>&nbsp;Genes in matching nodes<br/></strong>"
-  appendLineBreak(tree_info_div)
-  for (match_color in matching_nodes_details) {
-    tree_info_div.innerHTML += '<i class="fa fa-circle" style="font-size:18px;color:' + match_color + '"></i> &nbsp;'
-    for (event in matching_nodes_details[match_color]) {
-      genes = Array.from(matching_nodes_details[match_color][event]).sort()
-      tree_info_div.innerHTML += event + ": " + genes.join(', ') + "; &nbsp;"
-    }
-    appendLineBreak(tree_info_div)
-  }
-  appendLineBreak(tree_info_div)*/
-
+  // TODOM
   bg_color = tinycolor(cluster_bg_color).darken(30).desaturate(40).toHexString()
-  tree_info_div.innerHTML += "<strong style='background-color:" + bg_color + "; display:block;'>&nbsp;Cluster metadata<br/></strong>"
-  tree_info_div.appendChild(table_color_codes)
-  appendLineBreak(tree_info_div)
+  div_matches = createDivContainer("cluster_matches")
+  div_matches.style.direction = "ltr"
+  div_matches.innerHTML = "<strong style='background-color:" + bg_color + "; display:block;'>&nbsp;Genes in matching nodes<br/></strong>"
+  appendLineBreak(div_matches)
+  for (let [color, events] of matching_nodes_details.entries()) {
+    div_matches.innerHTML += '<i class="fa fa-circle" style="font-size:18px;color:' + color + '"></i> &nbsp;'
+    for (let [event, gene_set] of events.entries()) {
+      genes = Array.from(gene_set).sort()
+      div_matches.innerHTML += event + ": " + applyTextStyle(genes[0], highlighted_genes)
+      for (var gene of genes.slice(1,genes.length+1)) {
+        div_matches.innerHTML += ", " + applyTextStyle(gene, highlighted_genes)
+      }
+      div_matches.innerHTML += ";"
+    }
+    appendHalfLineBreak(div_matches)
+  }
+  appendLineBreak(div_matches)
+  tree_info_div.appendChild(div_matches)
+
+  div_meta = createDivContainer("cluster_meta")
+  div_meta.style.direction = "ltr"
+  div_meta.innerHTML += "<strong style='background-color:" + bg_color + "; display:block;'>&nbsp;Cluster metadata<br/></strong>"
+  div_table_1 = createDivContainer("table_1")
+  div_table_1.style.display = "inline-block"
+  div_table_1.appendChild(table_color_codes)
+  div_meta.appendChild(div_table_1)
+  div_meta.innerHTML += "<br/>"
+  appendLineBreak(div_meta)
   var metadata_table = getMetadataTable(cluster_metadata)
-  tree_info_div.appendChild(metadata_table)
+  metadata_table.style.display = "inline-table"
+  div_meta.appendChild(metadata_table)
+  appendLineBreak(div_meta)
+  appendLineBreak(div_meta)
+  tree_info_div.appendChild(div_meta)
   appendLineBreak(tree_info_div)
   appendLineBreak(tree_info_div)
 }
@@ -1427,7 +1711,8 @@ function populateHeatmapView(args) {
         "color": data["trees"][cluster[0]]["2d_color"],
         "cluster_bg_color": data["trees"][cluster[0]]["cluster_color"],
         "cluster_metadata": trees[cluster[0]]["sample_metadata_colors"],
-        "table_color_codes": trees[cluster[0]]["table_color_codes"]
+        "table_color_codes": trees[cluster[0]]["table_color_codes"],
+        "matching_nodes_cluster_details": trees[cluster[0]]["matching_nodes_cluster_details"]
     }
   }
 
@@ -1466,8 +1751,9 @@ function populateHeatmapView(args) {
       .style("cursor", "pointer")
       .on("click", function(d){
           args_cluster = {}
-          args_cluster["matching_nodes_details"] = {} // TODO matching_clones_color_map
+          args_cluster["matching_nodes_details"] = cluster_starts[d.sample_1]["matching_nodes_cluster_details"] // TODO matching_clones_color_map
           args_cluster["tree_info_div_id"] = tree_info_div_id
+          args_cluster["highlighted_genes"] = data["highlighted_genes"] 
           args_cluster["cluster_bg_color"] = cluster_starts[d.sample_1]["cluster_bg_color"]
           args_cluster["cluster_metadata"] = cluster_starts[d.sample_1]["cluster_metadata"]
           args_cluster["table_color_codes"] = cluster_starts[d.sample_1]["table_color_codes"];

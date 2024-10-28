@@ -182,6 +182,7 @@ body* {
   border-style: solid;
   border-color: transparent transparent transparent #353935;
 }
+
 .info-tooltip:hover .tooltiptext-left {
   visibility: visible;
 }
