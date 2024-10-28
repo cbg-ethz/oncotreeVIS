@@ -24,7 +24,7 @@
 ### Usage
 ----------
 
-OncotreeVIS can be used (1) locally by including the javascript library and calling the oncotreeVIS function with two arguments (the input in json format -- see below, and the id of an empty div container), and (2), using our <a href=https://cbg-ethz.github.io/oncotreeVIS target=app>web app</a> to visualize predefined datasets or your own in the required format (see below).<br/> 
+OncotreeVIS can be used (1) locally by including the javascript library and calling the oncotreeVIS function with two arguments (the input in json format -- see below, and the id of an empty div container), and (2), using our <a href=https://cbg-ethz.github.io/oncotreeVIS target=app>web app</a> to visualize predefined datasets or your own in the required format (see below).<br/><br/> 
 
 The expected input is a JSON file with the following key values:<br/>
 
