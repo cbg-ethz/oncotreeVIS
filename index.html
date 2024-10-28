@@ -148,7 +148,8 @@ $('#drop-down-cohort').change(function(){
           "</table>" +
           "<br/>The JSON files used for the predefined datasets are available on " +
           "<a href='https://github.com/cbg-ethz/oncotreeVIS/tree/main/data' target=git>github</a>." +
-        "</td><td style='padding:50px'><b>Load JSON file:</b><p style='margin:6px;'></p><input type=file id='picker' onchange='load()'</td></tr></table></div>"
+        "</td><td style='padding:50px'><b>Load JSON file:</b><p style='margin:6px;'></p><input type=file id='picker' onchange='load()'<br/><br/><br/>" +
+        "<i> <font color=gray>The data is processed on the fly on the client's side and remains confidential.</font></i></td></tr></table></div>"
   } else {
     data = datasets[cohort_name]["data"]
     data["matching_trees"] = datasets[cohort_name]["matching_trees"]
