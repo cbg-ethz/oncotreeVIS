@@ -6,9 +6,8 @@
 
 <br/>
 
-### Web app: https://cbg-ethz.github.io/oncotreeVIS
+### Web app: <a href=https://cbg-ethz.github.io/oncotreeVIS target=app>https://cbg-ethz.github.io/oncotreeVIS</a>
 ----------
-<br/>
 
 ### Abstract
 ----------
@@ -20,8 +19,8 @@
 <div align="center">
 <img src="./docs/poster.png" width="90%" height="auto">
 </div>
-
 <br/>
+
 ### Usage
 ----------
 
