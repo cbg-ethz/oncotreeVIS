@@ -20,9 +20,8 @@
 
 <!-- Load tree datasets -->
 <script src="data/aml_morita/trees_aml_morita.json"></script> 
-<script src="data/aml_morita/knn_aml_morita.json"></script>
 <script src="data/aml_compass/trees_aml_compass.json"></script>
-<!-- <script src="data/brca_razavi/trees_brca_razavi.json"></script> -->
+<script src="data/brca_razavi/trees_brca_razavi.json"></script> 
 <script src="data/tracerx/tracerx_lung/trees_tracerx_lung.json"></script>
 <script src="data/tracerx/tracerx421/trees_tracerx421.json"></script>
 <script src="data/noble2022/trees_noble2022.json"></script>
@@ -76,13 +75,13 @@ function load () {
 
 <script>
 datasets = {
-    "[CLUSTERED] 123 AML point mutation trees (Morita et al. 2020)": {"data": data_aml_morita, "matching_trees": knn_aml_morita},
-    "145 AML joint CN-point mutation trees (COMPASS, Sollier et al. 2022)": {"data": data_aml_compass},
+    "[CLUSTERED] 123 AML point mutation trees (Morita et al. 2020)": {"data": data_aml_morita},
     //"[CLUSTERED] 25 TumorProfiler AML CN trees": {"data": data_tupro_aml},
     "[CLUSTERED] 43 tumor evolution trees (Noble et al. 2022)": {"data": data_noble2022},
     "[CLUSTERED] 99 non-small cell lung cancer point mutation trees (TRACERx, Jamal-Hanjani et al. 2017)": {"data": data_tracerx_lung},
+    "145 AML joint CN-point mutation trees (COMPASS, Sollier et al. 2022)": {"data": data_aml_compass},
     "126 non-small cell lung metastatic cancer point mutation trees (TRACERx421, Al Bakir et al. 2023)": {"data": data_tracerx421},
-    //"1,315 Breast cancer mutation trees (Razavi et al. 2018)": {"data": data_brca_razavi},
+    "1,214 Breast cancer mutation trees (Razavi et al. 2018)": {"data": data_brca_razavi},
     "--> Load custom mutation tree cohort file": {}
 }
             
@@ -141,8 +140,8 @@ $('#drop-down-cohort').change(function(){
                 "<p style='margin:6px;'></p>" +
                 "</td></tr>" +
             "<tr style='border-bottom: 1px solid darkgray;'><td style='vertical-align:top'><b>highlighted_genes</b></td><td style='padding-left:20px'>" +
-                "Styles used: bold, italic, uppercase, color code.<p style='margin:6px;'></p>" +
-                "Example: {\"bold\": [\"JAK2\", \"PTEN\", \"TP53\", \"AKT1\"]}" +
+                "Styles used: bold, italic, uppercase, or color code.<p style='margin:6px;'></p>" +
+                "Example: {\"bold\": [\"JAK2\", \"PTEN\", \"AKT1\"], \"#b4a7d6\": [\"TP53\"], \"lightsteelblue\": [\"FLT3-ITD\"]}" +
                 "<p style='margin:6px;'></p>" +
                 "</td></tr>" +
           "</table>" +
@@ -158,7 +157,6 @@ $('#drop-down-cohort').change(function(){
 });
 
 data = data_aml_morita
-data["matching_trees"] = knn_aml_morita       
 oncotreeVIS(data, "container")
 
 </script>
