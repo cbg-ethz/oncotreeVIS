@@ -29,7 +29,7 @@ function oncotreeVIS(data, container_div_id) {
     tree = trees[sample_name]["tree"]
     matching_labels = new Set(Array.from(getTreeMalignantMatchingLabels(tree).keys()))
     for (let matching_label of matching_labels) {
-      key = matching_label.toString()
+      key = matching_label
       if (key in unique_matching_labels_cohort) {
         unique_matching_labels_cohort[key] = false
       } else {
@@ -194,40 +194,46 @@ function oncotreeVIS(data, container_div_id) {
 
   // kNN
   knn_json = {}
-  for (sample_1 in trees) {
-    tree_1 = trees[sample_1]["tree"]
-    var matching_labels = new Set(Array.from(getTreeMalignantMatchingLabels(tree_1).keys()))
-    matching_tree_ids = new Set()
-    for (let key of matching_labels) {
-      for (let sample of matching_label_tree_map.get(key)) {
-        matching_tree_ids.add(sample)
+  if(mapSize(trees) < 200) {
+    for (let sample_1 in trees) {
+      tree_1 = trees[sample_1]["tree"]
+      //var matching_tree_ids = Object.keys(trees)
+      var matching_labels = new Set(Array.from(getTreeMalignantMatchingLabels(tree_1).keys()))
+      matching_tree_ids = new Set()
+      for (let key of matching_labels) {
+        for (let sample of matching_label_tree_map.get(key)) {
+          matching_tree_ids.add(sample)
+        }
       }
-    }
-    for (let sample_2 of matching_tree_ids) {
-      if (sample_1 != sample_2) {
-        var tree_2 = trees[sample_2]["tree"]
-        var matching_node_pairs = getMatchingNodes(getTreeNodes(tree_1), getTreeNodes(tree_2))
-        const [nodes_1, links_1, max_depth_1] = getJSONNodes(sample_1, tree_1)
-        const [nodes_2, links_2, max_depth_2] = getJSONNodes(sample_2, tree_2)
-        const max_depth = Math.max(max_depth_1, max_depth_2)
-        nodes = nodes_1.concat(nodes_2)
-        links = links_1.concat(links_2)
-        for (let pair of matching_node_pairs) {
-          links.push({
-            "source": sample_1 + "_" + pair[0].data.node_id,
-            "target": sample_2 + "_" + pair[1].data.node_id,
-            "similarity": 1,
-          })
-        }
-        knn_json[sample_1 + "_" + sample_2] = {
-          "sample_1": sample_1,
-          "sample_2": sample_2,
-          "nodes": nodes,
-          "links": links,
-          "similarity": matching_node_pairs.length,
-          "max_depth": max_depth
-        }
-      } 
+      for (let sample_2 of matching_tree_ids) {
+        if (sample_1 != sample_2) {
+          var tree_2 = trees[sample_2]["tree"]
+          var matching_node_pairs = getMatchingNodes(getTreeNodes(tree_1), getTreeNodes(tree_2))
+          if (!matching_node_pairs[0]) {
+            continue
+          }
+          const [nodes_1, links_1, max_depth_1] = getJSONNodes(sample_1, tree_1)
+          const [nodes_2, links_2, max_depth_2] = getJSONNodes(sample_2, tree_2)
+          const max_depth = Math.max(max_depth_1, max_depth_2)
+          nodes = nodes_1.concat(nodes_2)
+          links = links_1.concat(links_2)
+          for (let pair of matching_node_pairs) {
+            links.push({
+              "source": sample_1 + "_" + pair[0].data.node_id,
+              "target": sample_2 + "_" + pair[1].data.node_id,
+              "similarity": 1,
+            })
+          }
+          knn_json[sample_1 + "_" + sample_2] = {
+            "sample_1": sample_1,
+            "sample_2": sample_2,
+            "nodes": nodes,
+            "links": links,
+            "similarity": matching_node_pairs.length,
+            "max_depth": max_depth
+          }
+        } 
+      }
     }
   }
   data["matching_trees"] = knn_json
@@ -505,12 +511,12 @@ function populateTreeView(args){
   tree_info_div = document.getElementById(tree_info_div_id)
   tree_info_div.innerHTML = '<div style="text-align:center;height:100%;display:flex;flex-direction:row;' +
       'align-items:center;justify-content:center;"><i>The tree clusters are indicated by<br/>' +
-      'different background <font color=#A87676>c</font><font color=#E493B3>o</font><font color=#B784B7>l</font><font color=#8E7AB5>o</font>'+
+      ' different background <font color=#A87676>c</font><font color=#E493B3>o</font><font color=#B784B7>l</font><font color=#8E7AB5>o</font>'+
       '<font color=#F6995C>r</font><font color=#88AB8E>s</font>. <br/>' +
-      ' Zoom out <i class="fa fa-search-minus"></i> to get the<br/>full overview of the tree clusters.<br/><br/>***<br/><br/>' +
-      'Click on the trees to visualize<br/>details of each subclone.<br/><br/>' +
-      'Click on the " <i class="fa fa-desktop fa-sm"></i> show cluster details" icons<br/>' +
-      'to visualize additional cluster information.'+
+      ' Zoom out <i class="fa fa-search-minus"></i> to get the<br/> full overview of the tree clusters.<br/><br/>***<br/><br/>' +
+      ' Click on the trees to visualize<br/>details of each subclone.<br/><br/>' +
+      ' Click on the " <i class="fa fa-desktop fa-sm"></i> show cluster details" icons<br/>' +
+      ' to visualize additional cluster information.'+
       '</i></div>'
   tree_info_div.style.backgroundColor = "white"
 
@@ -775,7 +781,8 @@ function getTreeNodes(tree_json) {
 function getMalignantMatchingLabels(node_list){
   var node_map = new Map()
   for (node of node_list) {
-    if (node.data.matching_label && !node.data.is_neutral && mapSize(node.data.gene_states)) {
+    if ((!node.parent && mapSize(node.data.gene_states)) ||
+        (node.parent && node.data.matching_label && !node.data.is_neutral)) {
       node_map.set(node.data.matching_label, node)
     }
   }
@@ -1757,7 +1764,7 @@ function populateHeatmapView(args) {
   div_tree_info.style.backgroundColor = "transparent"
   div_tree_info.innerHTML = "<div style='text-align:center;height:100%;display:flex;flex-direction:row;" +
       "align-items:center;justify-content:center;'><i>Click on the sample names <br/>and" +
-      " on the colored frames<br/>(corresponding to the given tree clusters)<br/>to visualize additional information.</i></div>"
+      " on the colored frames<br/>(corresponding to the given tree clusters)<br/> to visualize additional information.</i></div>"
 
   // Data.
   data = args.data
