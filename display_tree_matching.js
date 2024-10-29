@@ -1,13 +1,12 @@
-
 function getYShift(depth) {
-  return depth * 60 + 60
+  return depth * 40 + 60
 }
 
 function getXShift(dx, group) {
   if (group == 2) {
-    return dx * 4 + 170
+    return dx * 100 + 150
   }
-  return dx * 4 + 30
+  return dx * 100 
 }
 
 async function async_display_tree_matching(div_id, data) {
@@ -18,25 +17,19 @@ async function async_display_tree_matching(div_id, data) {
 function display_tree_matching(div_id, data) {
   var colors = ['#a6cee3', '#1f78b4', '#b2df8a', '#33a02c', '#fb9a99', '#e31a1c', '#fdbf6f', '#ff7f00', '#cab2d6', '#6a3d9a', '#ffff99', '#b15928'] //d3.schemePaired
   var color_index = 0
-  //var colors = d3.scaleOrdinal(d3.schemeCategory10);
   var node_colors = {}
 
-  sample_1 = data["sample_1"]
+  sample_1 = data["sample_1"] 
   sample_2 = data["sample_2"]
-  tree_type = data["tree_type"]
-
+  pair_id = sample_1 + "-" + sample_2
   nodes = data["nodes"]
   links = data["links"]
-  score = data["score"]  
-  max_score = data["max_score"]
-  percentage = data["percentage"]
-  num_significant_matches = data["num_significant_matches"]
+  score = data["similarity"]  
+  max_depth = data["max_depth"]
   
   var margin = { top: 0, right: 0, bottom: 0, left: 0};
-  var width = 500 //- margin.left - margin.right;
-  var height = Math.min(400, 2*screen.height/3) - margin.top - margin.bottom;
- 
-  pair_id = sample_1 + "-" + sample_2 + "-" + tree_type  
+  var width = 500
+  var height = max_depth * 40 + 90
 
   var svg = d3.select("div#" + div_id)
     .append("svg")
@@ -54,14 +47,13 @@ function display_tree_matching(div_id, data) {
     .style("font-size", "13px")
     .text(sample_1 + " - " + sample_2);
 
-  for (var i = 0; i < nodes.length; i++){
-    node = nodes[i]
+  for (var node of nodes) {
     group = 2
-    if (node.id.includes(sample_1)) {
+    if (node.id.startsWith(sample_1)) {
       group = 1
     }
-    nodes[i].x = getXShift(node.dx, group)
-    nodes[i].y = getYShift(node.depth)
+    node.x = getXShift(node.dx, group)
+    node.y = getYShift(node.depth)
   }
 
   // Fetch the links between nodes.
@@ -78,8 +70,9 @@ function display_tree_matching(div_id, data) {
         color_index += 1
         return link_color
       }
+      return "darkgray"
     })
-    .style("stroke-width", "4px")
+    .style("stroke-width", "5px")
     .attr('marker-end','url(#arrowhead)')
  
   var edgepaths = svg.selectAll(".edgepath")
@@ -115,8 +108,7 @@ function display_tree_matching(div_id, data) {
     .attr("font-size", 16)
     .text(function (d) {
       if(d.similarity >= 0) {
-        return "sim = " + d.similarity   
-        return ((d.target).plit('_')[1])//.toString()
+        //return "sim = " + d.similarity   
       }
     })
 
@@ -128,10 +120,10 @@ function display_tree_matching(div_id, data) {
 
   node.append("circle")
     .attr("r", function(d) {
-      if (d.matching_label == 0) {
+      if (d.is_root) {
         return 3;
       } 
-      return 10
+      return 8
   })
   .style("fill", function(d) {
      return node_colors[d.id]

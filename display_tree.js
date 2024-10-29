@@ -305,7 +305,7 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
     max_genes_in_list = 4
     node.on('mousemove', function(d) {
       // Compute html info.
-      if (d.parent) {
+      if (d.parent && mapSize(d.data.gene_events) != 0) {
         html_info = ""
         if (d.data.matching_label) {
           html_info += "<b>Matching label:</b> " + d.data.matching_label + "<br/>"

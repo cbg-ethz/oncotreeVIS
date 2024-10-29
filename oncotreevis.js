@@ -18,19 +18,28 @@ function oncotreeVIS(data, container_div_id) {
         node.data.matching_label = node.data.matching_label.toString()
       }
     }
+    // Propagate gene states.
+    populateGeneStates(tree_json)
   }
 
   // Add data to all trees.
+  matching_label_tree_map = new Map()
   unique_matching_labels_cohort = {} // map {matching_label: bool}
   for (sample_name in trees) {
     tree = trees[sample_name]["tree"]
-    matching_labels = getMatchingLabels(tree)
-    for (matching_label of matching_labels) {
+    matching_labels = new Set(Array.from(getTreeMalignantMatchingLabels(tree).keys()))
+    for (let matching_label of matching_labels) {
       key = matching_label.toString()
       if (key in unique_matching_labels_cohort) {
         unique_matching_labels_cohort[key] = false
       } else {
         unique_matching_labels_cohort[key] = true
+      }
+      // Populate aux variable.
+      if (matching_label_tree_map.has(key)) {
+        matching_label_tree_map.get(key).push(sample_name)
+      } else {
+        matching_label_tree_map.set(key, [sample_name])
       }
     }
   }
@@ -48,11 +57,9 @@ function oncotreeVIS(data, container_div_id) {
     } 
   }
 
+  // Populate the node colors.
   for (sample_name in trees) {
     tree = trees[sample_name]["tree"]
-    // Propagate gene states.
-    populateGeneStates(tree)
-    // Populate the node colors.
     var node_list = getTreeNodes(trees[sample_name]["tree"])
     for(node of node_list) {
       if (node.parent && node.data.matching_label) { // not root.
@@ -63,7 +70,7 @@ function oncotreeVIS(data, container_div_id) {
         }
       }
     }
-  }  
+  } 
 
   // Clusters.
   if ("clusters" in data && data["clusters"].length != 0) {
@@ -87,7 +94,7 @@ function oncotreeVIS(data, container_div_id) {
       // Nodes and branches.
       tree = trees[sample_name]["tree"]
       conserved_branches_cluster = conserved_branches_cluster.intersection(getBranches(tree))           
-      matching_labels = getMatchingLabels(tree)
+      matching_labels = new Set(Array.from(getTreeMalignantMatchingLabels(tree).keys()))
       for (matching_label of matching_labels) {
         key = matching_label
         if (key in unique_matching_labels_cluster) {
@@ -184,7 +191,48 @@ function oncotreeVIS(data, container_div_id) {
       trees[cluster[0]]["matching_nodes_cluster_details"] = intersecting_clones
     }
   }
+
+  // kNN
+  knn_json = {}
+  for (sample_1 in trees) {
+    tree_1 = trees[sample_1]["tree"]
+    var matching_labels = new Set(Array.from(getTreeMalignantMatchingLabels(tree_1).keys()))
+    matching_tree_ids = new Set()
+    for (let key of matching_labels) {
+      for (let sample of matching_label_tree_map.get(key)) {
+        matching_tree_ids.add(sample)
+      }
+    }
+    for (let sample_2 of matching_tree_ids) {
+      if (sample_1 != sample_2) {
+        var tree_2 = trees[sample_2]["tree"]
+        var matching_node_pairs = getMatchingNodes(getTreeNodes(tree_1), getTreeNodes(tree_2))
+        const [nodes_1, links_1, max_depth_1] = getJSONNodes(sample_1, tree_1)
+        const [nodes_2, links_2, max_depth_2] = getJSONNodes(sample_2, tree_2)
+        const max_depth = Math.max(max_depth_1, max_depth_2)
+        nodes = nodes_1.concat(nodes_2)
+        links = links_1.concat(links_2)
+        for (let pair of matching_node_pairs) {
+          links.push({
+            "source": sample_1 + "_" + pair[0].data.node_id,
+            "target": sample_2 + "_" + pair[1].data.node_id,
+            "similarity": 1,
+          })
+        }
+        knn_json[sample_1 + "_" + sample_2] = {
+          "sample_1": sample_1,
+          "sample_2": sample_2,
+          "nodes": nodes,
+          "links": links,
+          "similarity": matching_node_pairs.length,
+          "max_depth": max_depth
+        }
+      } 
+    }
+  }
+  data["matching_trees"] = knn_json
   // END Populate additional data.
+
 
   var useful_variables = {
     "tree_cohort_div_id": tree_cohort_div_id, 
@@ -202,6 +250,37 @@ function oncotreeVIS(data, container_div_id) {
   
   // Populate with tree data. 
   populateTreeView(useful_variables)
+}
+
+function getJSONNodes(sample_name, tree_json) {
+  json_node_list = new Array()
+  json_links = new Array()
+  max_depth = 0
+  for (let node of getTreeNodes(tree_json)) {
+    is_root = false
+    if (!node.parent) {
+      is_root = true
+    }
+    json_node_list.push({
+        "id": sample_name + "_" + node.data.node_id,
+        "depth": node.depth,
+        "matching_label": node.data.matching_label,
+        "color": "white",
+        "dx": node.x,
+        "is_root": is_root
+    })
+    if (node.parent) {
+      json_links.push({
+        "source": sample_name + "_" + node.data.node_id,
+        "target": sample_name + "_" + node.parent.data.node_id,
+        "similarity": -1,
+      })
+    }
+    if (max_depth < node.depth) {
+      max_depth = node.depth
+    }
+  }
+  return [json_node_list, json_links, max_depth]
 }
 
 ///////////////////////
@@ -269,7 +348,7 @@ function addHTMLElements(container_div_id, args) {
   addInfoBoxToElement(tree_view_button, "Show mutation trees side by side, grouped by a given clustering (by default). " + 
       "Nodes correspond to clones of different sizes. Each node is labeled with the " +
       "set of provided gene mutations (SNVs, CNAs, etc) acquired by the subclone (also displayed on the incoming edges). "+
-      "Matching clones and conserved edges are highlighted. Neutral clones (if specified) are colored in " +
+      "Matching subclones and conserved edges are highlighted. Neutral clones (if specified) are colored in " +
       "<font color=lightyellow><b>lightyellow</b></font>.", bg_color="#0868d2", width=365, margin_left=135, position="top", line_height="13px")
   tree_view_div.appendChild(tree_view_button)
 
@@ -306,8 +385,8 @@ function addHTMLElements(container_div_id, args) {
   // Button matching.
   var button_matching_id = "matching"
   var button_matching = createActionIcon("fa fa-times-circle", button_matching_id)
-  addInfoBoxToElement(button_matching, "Highlight <b>matching clones and conserved branches</b> (default), " +
-      "<b>conserved edges only</b>, or <b>matching clones only</b>. Matching nodes have the same " +
+  addInfoBoxToElement(button_matching, "Highlight <b>matching subclones and conserved branches</b> (default), " +
+      "<b>conserved edges only</b>, or <b>matching subclones only</b>. Matching nodes have the same " +
       "<i>matching_label</i>.", bg_color="#0868d2", width=165, margin_left="", position="top", line_height="17px")
   button_matching.addEventListener('click', (event) => {
     var this_button = document.getElementById(event.currentTarget.id)
@@ -418,8 +497,6 @@ function populateTreeView(args){
     clusters = data["clusters"]
   }
 
-  knn = data["matching_trees"] 
-
   // Prepare tree cohort container.
   var tree_cohort_div_id = args.tree_cohort_div_id
   div_tree_cohort = document.getElementById(tree_cohort_div_id)
@@ -444,7 +521,7 @@ function populateTreeView(args){
         node.data.color = "white"
         node.data.conserved_parent_node_branch = false
         node.data.display_node_label = false
-        if (args.sorting == 0){ // clusters
+        if (args.sorting == 0 && clusters.length > 1){ // clusters
           if (args.matching == 0) { // display node colors and conserved branches
             node.data.color = node.data.color_in_cluster
             node.data.display_node_label = node.data.display_node_label_cluster
@@ -586,6 +663,106 @@ function round(value, precision) {
     return Math.round(value * multiplier) / multiplier;
 }
 
+/////////////
+//// kNN ////
+/////////////
+
+// Descendents without including the start node.
+function getDescendents(node) { 
+  var treemap = d3.tree()
+  var descendents = treemap(node).descendants()
+  return descendents.slice(1,descendents.length+1)
+}
+
+// Ancestors without including the start node.
+function getAncestors(start_node) {
+  var treemap = d3.tree()
+
+  var nodes_to_remove = treemap(start_node).descendants()
+  var node_ids_to_remove = nodes_to_remove.map((node) => node.data.node_id)
+
+  var root = null
+  for (let node of treemap(start_node).ancestors()) {
+    if (!node.parent) {
+      root = node
+      break
+    }
+  }
+
+  node_list = new Array()
+  var root_copy = root.copy() 
+  for (let node of treemap(root_copy).descendants()) {
+    // Exclude the start node subtree and the root.
+    if (!node.parent) { // root
+      continue
+    }
+    if (node.data.node_id == start_node.data.node_id) {
+      if (node.parent) {
+        node.parent.children = null
+      }
+    }
+    if (node_ids_to_remove.includes(node.data.node_id)) {
+      continue
+    }
+    if (node.parent.data.node_id == root_copy.data.node_id){ // child of the root becomes new root
+      node.parent = null
+    }
+    node_list.push(node)
+  }
+  return node_list
+}
+
+function getMatchingNodes(node_list_1, node_list_2) {
+  if (node_list_1.length == 0 || node_list_2.length == 0) {
+    return [null, null]
+  }
+
+  node_map_1 = getMalignantMatchingLabels(node_list_1)
+  node_map_2 = getMalignantMatchingLabels(node_list_2)
+  matching_labels = new Set(Array.from(node_map_1.keys())).intersection(new Set(Array.from(node_map_2.keys()))) 
+  if (matching_labels.size == 0) {
+    return [null, null]
+  }
+
+  match_depth = new Map()
+  for (const label of matching_labels) {
+    const depth = node_map_1.get(label).depth + node_map_2.get(label).depth
+    if (!match_depth.has(depth)) {
+      match_depth.set(depth, [label])
+    } else {
+      match_depth.get(depth).push(label)
+    }
+  }
+
+  const min_depth = Math.min(...Array.from(match_depth.keys()))
+  const label_min_depth = match_depth.get(min_depth)[0]
+  const node_1 = node_map_1.get(label_min_depth)
+  const node_2 = node_map_2.get(label_min_depth)
+  const matching_pair = new Array(node_1, node_2)
+  
+  // Match nodes in children and ancestor subtrees.
+  const node_1_wo_parent = node_1.copy() // deep copy and node is root
+  const node_2_wo_parent = node_2.copy() // deep copy and node is root
+  const matching_pair_descendents = getMatchingNodes(getDescendents(node_1_wo_parent), getDescendents(node_2_wo_parent)) 
+  const matching_pair_ancestors = getMatchingNodes(getAncestors(node_1), getAncestors(node_2))
+
+  var matching_pairs = new Array()
+  matching_pairs.push(matching_pair)
+  if (matching_pair_descendents[0]) {
+    for (let pair of matching_pair_descendents) {
+      matching_pairs.push(pair)
+    }
+  } 
+  if (matching_pair_ancestors[0]) {
+    for (let pair of matching_pair_ancestors) {
+      matching_pairs.push(pair)
+    }
+  }  
+  return matching_pairs 
+}
+
+
+
 //////////////////////////
 //// UTILS D3.JS TREE ////
 //////////////////////////
@@ -595,30 +772,18 @@ function getTreeNodes(tree_json) {
   return treemap(node_hierarchy).descendants()
 }
 
-function getNodeMatchingLabels(tree_json){
-  label_node_map = {}
-  node_list = getTreeNodes(tree_json)
+function getMalignantMatchingLabels(node_list){
+  var node_map = new Map()
   for (node of node_list) {
-    if (node.parent != null && node.data.matching_label && !node.data.is_neutral){ // discard root and neutral nodes.
-      label = node.data.matching_label
-      if(!(label in label_node_map)) {
-        label_node_map[label] = [] 
-      }
-     label_node_map[label].push(node)
+    if (node.data.matching_label && !node.data.is_neutral && mapSize(node.data.gene_states)) {
+      node_map.set(node.data.matching_label, node)
     }
   }
-  return label_node_map
+  return node_map
 }
 
-function getMatchingLabels(tree_json){
-  var matching_labels = new Set()
-  var node_list = getTreeNodes(tree_json)
-  for (node of node_list) {
-    if(node.data.matching_label) {
-      matching_labels.add(node.data.matching_label)
-    }
-  }
-  return matching_labels
+function getTreeMalignantMatchingLabels(tree_json){
+  return getMalignantMatchingLabels(getTreeNodes(tree_json))
 }
 
 // Returns a list of node-parent strings.
@@ -744,7 +909,7 @@ function addInfoBoxToElement(elem, text, bg_color="#0868d2", width=250, margin_l
 function createInfoTooltip() {
   var div = document.createElement('span')
   div.classList.add("info-tooltip")
-  div.innerHTML = "&nbsp;<i class='fa fa-question-circle' style='color:onyx; font-size:17px;'></i>"
+  div.innerHTML = "&nbsp;<i class='fa fa-question-circle' style='color:onyx; font-size:16px;'></i>"
   return div
 }
 
@@ -851,9 +1016,9 @@ function showTreeInfo(sample_name, args) {
     div_container.appendChild(gene_selection_dropdown)
 
     var info_icon = createInfoTooltip("fa fa-question-circle")
-    info_text = "Clones affected by <b>selected target gene</b> are highlighted with colors in the mutation tree below: " +
+    info_text = "Subclones affected by <b>selected target gene</b> are highlighted with colors in the mutation tree below: " +
       "<b><font color=tomato>red</font></b>  for CN amplification, <b><font color=lightsteelblue>blue</font></b> for CN deletion " +
-      "and <b><font color=#b4a7d6>violet</font></b> for any other mutation event. An event in one clone of the tree affects all the subsequent nodes in the child subtree." 
+      "and <b><font color=#b4a7d6>violet</font></b> for any other mutation event. An event in one subclone of the tree affects all the subsequent nodes in the child subtree." 
     addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=200, margin_left="", position="left", line_height="17px")
     div_container.appendChild(info_icon)
 
@@ -884,7 +1049,7 @@ function showTreeInfo(sample_name, args) {
     div_container.appendChild(drug_selection_dropdown)
 
     var info_icon = createInfoTooltip("fa fa-question-circle")
-    info_text = "Clones with affected genes that have a theoretical " +
+    info_text = "Subclones with affected genes that have a theoretical " +
       "interaction with the <b> selected target drug</b> (according to DGIdb) are indicated with green squares in the mutation tree below. " + 
        "Drugs are listed in descending order by the number of cells they affect. Only drug interactions with at least 3 citations are considered."
     addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=230, margin_left="", position="left", line_height="17px")
@@ -942,9 +1107,14 @@ function showTreeInfo(sample_name, args) {
   }
 
   // kNN matching trees.
-  if (knn) { 
+  if (knn && mapSize(knn)) { 
     var header_knn = createInfoHeader("<b>K-nearest tree neighbors</b>")
     header_knn.style.direction = "ltr"
+    var info_icon = createInfoTooltip("fa fa-question-circle")
+    info_text = "K-nearest matching trees to the selected tree, computed using a greedy approximation algorithm for the maximum matching problem with ordering constraints."
+    addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=150, margin_left="", position="left", line_height="20px")
+    header_knn.appendChild(info_icon)
+
     tree_info_div.appendChild(header_knn)
 
     var knn_box_id = "knn"
@@ -952,11 +1122,14 @@ function showTreeInfo(sample_name, args) {
     knn_box_div.style.direction = "ltr"
     knn_box_div.style.display = 'none'
     tree_info_div.appendChild(knn_box_div)
-    for (const [id, data] of Object.entries(knn)) {
-      if (id.startsWith(sample_name)) {
-        async_display_tree_matching(knn_box_id, data)
-      }
+
+    knn_keys = Object.keys(knn)
+    sample_matches = knn_keys.filter((key) => key.startsWith(sample_name))
+    sample_matches.sort((key_1, key_2) => knn[key_2]["similarity"] - knn[key_1]["similarity"])
+    for(let key of sample_matches) {
+      async_display_tree_matching(knn_box_id, knn[key])
     }
+
     header_knn.appendChild(createExpandBox(knn_box_id))
     appendLineBreak(tree_info_div)
   }
@@ -1751,7 +1924,7 @@ function populateHeatmapView(args) {
       .style("cursor", "pointer")
       .on("click", function(d){
           args_cluster = {}
-          args_cluster["matching_nodes_details"] = cluster_starts[d.sample_1]["matching_nodes_cluster_details"] // TODO matching_clones_color_map
+          args_cluster["matching_nodes_details"] = cluster_starts[d.sample_1]["matching_nodes_cluster_details"] 
           args_cluster["tree_info_div_id"] = tree_info_div_id
           args_cluster["highlighted_genes"] = data["highlighted_genes"] 
           args_cluster["cluster_bg_color"] = cluster_starts[d.sample_1]["cluster_bg_color"]
