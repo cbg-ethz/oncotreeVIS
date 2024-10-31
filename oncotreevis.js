@@ -4,9 +4,9 @@
 function async_func(input, callback) {
   setTimeout(function () {
     callback(input);
-    //document.body.style.cursor = "auto"
+    document.body.style.cursor = "auto"
   }, 0);
-  //document.body.style.cursor = "wait"
+  document.body.style.cursor = "wait"
 }     
     
 function oncotreeVIS(data, container_div_id) {
@@ -230,7 +230,7 @@ function oncotreeVIS_slow(args) {
       for (let sample_2 of matching_tree_ids) {
         if (sample_1 != sample_2) {
           var tree_2 = trees[sample_2]["tree"]
-          var matching_node_pairs = getMatchingNodes(getTreeNodes(tree_1), getTreeNodes(tree_2))
+          var matching_node_pairs = getMatchingNodesWithMatchingLabels(getTreeNodes(tree_1), getTreeNodes(tree_2))
           if (!matching_node_pairs[0]) {
             continue
           }
@@ -415,7 +415,7 @@ function addHTMLElements(container_div_id, args) {
   var button_matching = createActionIcon("fa fa-times-circle", button_matching_id)
   addInfoBoxToElement(button_matching, "Highlight <b>matching subclones and conserved branches</b> (default), " +
       "<b>conserved edges only</b>, or <b>matching subclones only</b>. Matching nodes have the same " +
-      "<i>matching_label</i>.", bg_color="#0868d2", width=165, margin_left="", position="top", line_height="17px")
+      "<i>matching_label</i>.", bg_color="#0868d2", width=190, margin_left="", position="top", line_height="17px")
   button_matching.addEventListener('click', (event) => {
     var this_button = document.getElementById(event.currentTarget.id)
     var state = event.currentTarget.state
@@ -745,7 +745,7 @@ function getAncestors(start_node) {
   return node_list
 }
 
-function getMatchingNodes(node_list_1, node_list_2) {
+function getMatchingNodesWithMatchingLabels(node_list_1, node_list_2) {
   if (node_list_1.length == 0 || node_list_2.length == 0) {
     return [null, null]
   }
@@ -776,8 +776,8 @@ function getMatchingNodes(node_list_1, node_list_2) {
   // Match nodes in children and ancestor subtrees.
   const node_1_wo_parent = node_1.copy() // deep copy and node is root
   const node_2_wo_parent = node_2.copy() // deep copy and node is root
-  const matching_pair_descendents = getMatchingNodes(getDescendents(node_1_wo_parent), getDescendents(node_2_wo_parent)) 
-  const matching_pair_ancestors = getMatchingNodes(getAncestors(node_1), getAncestors(node_2))
+  const matching_pair_descendents = getMatchingNodesWithMatchingLabels(getDescendents(node_1_wo_parent), getDescendents(node_2_wo_parent)) 
+  const matching_pair_ancestors = getMatchingNodesWithMatchingLabels(getAncestors(node_1), getAncestors(node_2))
 
   var matching_pairs = new Array()
   matching_pairs.push(matching_pair)
@@ -808,7 +808,7 @@ function getTreeNodes(tree_json) {
 function getMalignantMatchingLabels(node_list){
   var node_map = new Map()
   for (node of node_list) {
-    if ((!node.parent && mapSize(node.data.gene_states)) ||
+    if ((!node.parent && mapSize(node.data.gene_states) && node.data.matching_label) ||
         (node.parent && node.data.matching_label && !node.data.is_neutral)) {
       node_map.set(node.data.matching_label, node)
     }
@@ -1147,7 +1147,7 @@ function showTreeInfo(sample_name, args) {
   var header_knn = createInfoHeader("<b>K-nearest tree neighbors</b>")
   header_knn.style.direction = "ltr"
   var info_icon = createInfoTooltip("fa fa-question-circle")
-  info_text = "K-nearest matching trees to the selected tree, computed using a greedy approximation algorithm for the maximum matching problem with ordering constraints."
+  info_text = "K-nearest matching trees to the selected tree based on the provided <i>matching_labels</i>, computed using a greedy approximation algorithm for the maximum matching problem with ordering constraints."
   addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=150, margin_left="", position="left", line_height="20px")
   header_knn.appendChild(info_icon)
   tree_info_div.appendChild(header_knn)
@@ -1165,8 +1165,8 @@ function showTreeInfo(sample_name, args) {
       async_display_tree_matching(knn_box_id, knn[key])
     }
   } else {
-    knn_box_div.innerHTML = "<i>KNN not computed either because node `matching_label` attributes are missing or the number of trees " +
-        "is too large. Please provide precomputed pairwise subclone distances in the `pairwise_subclone_distances` field of your input JSON.</i><br/>"
+    knn_box_div.innerHTML = "<i>kNN not computed either because node `matching_label` attributes are missing, or the number of trees " +
+        "is too large.</i><br/>"
   }
   header_knn.appendChild(createExpandBox(knn_box_id))
   appendLineBreak(tree_info_div)
