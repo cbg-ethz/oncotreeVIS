@@ -627,6 +627,8 @@ function populateTreeView_slow(args){
       tree_div.setAttribute("style", "border: 1px solid " + border_color + 
           ";cursor: pointer; border-radius: 8px; display: inline-block; background-color:" + cluster_color)
       tree_div.addEventListener('click', ()=>{ showTreeInfo(sample_name, args); }) 
+      $('#' + tree_div_id).lazyload()
+
       outer_div.appendChild(tree_div)
       displayTree(tree_div_id, sample_name, tree_json, "", "", null, tree_info_view=false)
     })
