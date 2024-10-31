@@ -1,7 +1,26 @@
 ///////////////////////
 //// Main function ////
 ///////////////////////
+function async_func(input, callback) {
+  setTimeout(function () {
+    callback(input);
+    //document.body.style.cursor = "auto"
+  }, 0);
+  //document.body.style.cursor = "wait"
+}     
+    
 function oncotreeVIS(data, container_div_id) {
+  var args = {
+    "data": data,
+    "container_div_id": container_div_id,
+  }
+  async_func(args, oncotreeVIS_slow)
+}
+
+function oncotreeVIS_slow(args) {
+  data = args.data 
+  container_div_id = args.container_div_id
+
   var num_max_node_colors = 10
   var tree_cohort_div_id = "tree_cohort"
   var tree_info_div_id = "tree_info"
@@ -194,7 +213,10 @@ function oncotreeVIS(data, container_div_id) {
 
   // kNN
   knn_json = {}
-  if(mapSize(trees) < 200) {
+  if ("pairwise_subclone_distances" in data) {
+    // TODO
+  }
+  else if (mapSize(trees) < 1500 && mapSize(cohort_node_color_map) < 50) {
     for (let sample_1 in trees) {
       tree_1 = trees[sample_1]["tree"]
       //var matching_tree_ids = Object.keys(trees)
@@ -215,6 +237,7 @@ function oncotreeVIS(data, container_div_id) {
           const [nodes_1, links_1, max_depth_1] = getJSONNodes(sample_1, tree_1)
           const [nodes_2, links_2, max_depth_2] = getJSONNodes(sample_2, tree_2)
           const max_depth = Math.max(max_depth_1, max_depth_2)
+          const max_similarity = Math.max(nodes_1.length, nodes_2.length)
           nodes = nodes_1.concat(nodes_2)
           links = links_1.concat(links_2)
           for (let pair of matching_node_pairs) {
@@ -229,7 +252,7 @@ function oncotreeVIS(data, container_div_id) {
             "sample_2": sample_2,
             "nodes": nodes,
             "links": links,
-            "similarity": matching_node_pairs.length,
+            "similarity": matching_node_pairs.length / max_similarity,
             "max_depth": max_depth
           }
         } 
@@ -238,7 +261,6 @@ function oncotreeVIS(data, container_div_id) {
   }
   data["matching_trees"] = knn_json
   // END Populate additional data.
-
 
   var useful_variables = {
     "tree_cohort_div_id": tree_cohort_div_id, 
@@ -255,7 +277,7 @@ function oncotreeVIS(data, container_div_id) {
   addHTMLElements(container_div_id, useful_variables)
   
   // Populate with tree data. 
-  populateTreeView(useful_variables)
+  populateTreeView_slow(useful_variables)
 }
 
 function getJSONNodes(sample_name, tree_json) {
@@ -420,7 +442,7 @@ function addHTMLElements(container_div_id, args) {
   outer_div.appendChild(tree_view_div)
    
   // Heatmap view buttons.
-  if ("pairwise_distances" in args.data) { 
+  if ("pairwise_tree_distances" in args.data) { 
     var heatmap_view_button = document.createElement('button')
     heatmap_view_button.className = "button-15"
     heatmap_view_button.addEventListener('click', ()=>{ populateHeatmapView(args) })
@@ -458,9 +480,9 @@ function addHTMLElements(container_div_id, args) {
   tree_info_div.style.borderRadius = "8px"
   tree_info_div.style.fontSize = "13px"
   tree_info_div.style.position = "fixed"
-  tree_info_div.style.width = "24%"
+  tree_info_div.style.width = "max(24%, 300px)" 
   //tree_info_div.style.maxWidth = "430px"
-  tree_info_div.style.minWidth = "300px"
+  //tree_info_div.style.minWidth = "300px"
   tree_info_div.style.padding = "7px"
   tree_info_div.style.float = "right"
   //tree_info_div.style.left = "calc(73% + 2px)"
@@ -481,7 +503,13 @@ function addHTMLElements(container_div_id, args) {
 ///////////////////
 //// Tree view ////
 ///////////////////
-function populateTreeView(args){
+function populateTreeView(args) {
+  populateTreeView_slow(args)
+  //async_func(args, populateTreeView_slow)
+  //document.body.style.cursor = "wait"
+}
+
+function populateTreeView_slow(args){
   // Arguments:
   // trees: tree information; 
   // clusters: list of lists with sample names which match the tree keys;
@@ -615,7 +643,6 @@ function populateTreeView(args){
       container.css('top', Math.max(0, initial_position - scroll_offset));
     });
   });
-
 }
 
 //////////////
@@ -840,6 +867,9 @@ function updateGeneStates(gene_events_map, parent_gene_states) {
               new_gene_states[gene][new_event_type] =  old_value + ";" + new_value
             }
           } else {
+            if (!(gene in new_gene_states)) {
+              new_gene_states[gene] = {}
+            }
             new_gene_states[gene][new_event_type] = new_value
           }
         }
@@ -1114,32 +1144,32 @@ function showTreeInfo(sample_name, args) {
   }
 
   // kNN matching trees.
-  if (knn && mapSize(knn)) { 
-    var header_knn = createInfoHeader("<b>K-nearest tree neighbors</b>")
-    header_knn.style.direction = "ltr"
-    var info_icon = createInfoTooltip("fa fa-question-circle")
-    info_text = "K-nearest matching trees to the selected tree, computed using a greedy approximation algorithm for the maximum matching problem with ordering constraints."
-    addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=150, margin_left="", position="left", line_height="20px")
-    header_knn.appendChild(info_icon)
+  var header_knn = createInfoHeader("<b>K-nearest tree neighbors</b>")
+  header_knn.style.direction = "ltr"
+  var info_icon = createInfoTooltip("fa fa-question-circle")
+  info_text = "K-nearest matching trees to the selected tree, computed using a greedy approximation algorithm for the maximum matching problem with ordering constraints."
+  addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=150, margin_left="", position="left", line_height="20px")
+  header_knn.appendChild(info_icon)
+  tree_info_div.appendChild(header_knn)
 
-    tree_info_div.appendChild(header_knn)
-
-    var knn_box_id = "knn"
-    var knn_box_div = createDivContainer(knn_box_id)
-    knn_box_div.style.direction = "ltr"
-    knn_box_div.style.display = 'none'
-    tree_info_div.appendChild(knn_box_div)
-
+  var knn_box_id = "knn"
+  var knn_box_div = createDivContainer(knn_box_id)
+  knn_box_div.style.direction = "ltr"
+  knn_box_div.style.display = 'none'
+  tree_info_div.appendChild(knn_box_div)
+  if (knn && mapSize(knn)) {
     knn_keys = Object.keys(knn)
     sample_matches = knn_keys.filter((key) => key.startsWith(sample_name))
     sample_matches.sort((key_1, key_2) => knn[key_2]["similarity"] - knn[key_1]["similarity"])
     for(let key of sample_matches) {
       async_display_tree_matching(knn_box_id, knn[key])
     }
-
-    header_knn.appendChild(createExpandBox(knn_box_id))
-    appendLineBreak(tree_info_div)
+  } else {
+    knn_box_div.innerHTML = "<i>KNN not computed either because node `matching_label` attributes are missing or the number of trees " +
+        "is too large. Please provide precomputed pairwise subclone distances in the `pairwise_subclone_distances` field of your input JSON.</i><br/>"
   }
+  header_knn.appendChild(createExpandBox(knn_box_id))
+  appendLineBreak(tree_info_div)
 
   // Add event listeners after the DOM is complete. 
   $('.gene_selection, .drug_selection').on('change', 
@@ -1351,7 +1381,7 @@ function updateTree(event) {
 
 function populateGeneDrugInfoHTML(target_gene, gene_drug_map) {
   if (target_gene == "") {
-    return "No target gene selected.<br/>"
+    return "<i>No target gene selected.</i><br/>"
   }
   var drugs = gene_drug_map.get(target_gene)
   if (!(gene_drug_map.has(target_gene))) {
@@ -1752,6 +1782,12 @@ function getColorCodesTable(map) {
 //// Heatmap view ////
 //////////////////////
 function populateHeatmapView(args) {
+  populateHeatmapView_slow(args)
+  //async_func(args, populateHeatmapView_slow)
+  //document.body.style.cursor = "wait"
+}
+
+function populateHeatmapView_slow(args) {
   // Canvas.
   var tree_cohort_div_id = args.tree_cohort_div_id
   div_tree_cohort = document.getElementById(tree_cohort_div_id)
@@ -1768,7 +1804,7 @@ function populateHeatmapView(args) {
 
   // Data.
   data = args.data
-  distances = data["pairwise_distances"]
+  distances = data["pairwise_tree_distances"]
   sample_list = Object.keys(data["trees"])
   clusters = [sample_list]
   if ("clusters" in data) {
@@ -2028,6 +2064,12 @@ function MDS(distances, dimensions) {
 }
 
 function populate2DView(args) {
+  populate2DView_slow(args)
+  //async_func(args, populate2DView_slow)
+  //document.body.style.cursor = "wait"
+} 
+
+function populate2DView_slow(args) {
   // Canvas.
   var tree_cohort_div_id = args.tree_cohort_div_id
   div_tree_cohort = document.getElementById(tree_cohort_div_id)
@@ -2057,8 +2099,7 @@ function populate2DView(args) {
       "<br/>to visualize additional information<br/>about the corresponding mutation tree.</i></div>"
 
   // Data.
-  distances = args.data["pairwise_distances"]
-  var opt = {epsilon: 10}; // epsilon is learning rate (10 = default)
+  distances = args.data["pairwise_tree_distances"]
   var sample_id_map = {}
   distances.forEach(function(item) {
     sample = item["sample_1"]

@@ -305,7 +305,7 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
     max_genes_in_list = 4
     node.on('mousemove', function(d) {
       // Compute html info.
-      if (d.parent) {
+      if (d.parent || d.data.gene_event_categories) {
         html_info = ""
         if (d.data.matching_label) {
           html_info += "<b>Matching label:</b> " + d.data.matching_label + "<br/>"
@@ -331,9 +331,10 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
             html_info += "<br/>"
           }
         }
-      } else {
+      } else if (!(d.parent)){
         html_info = "root"
       }
+
       // Populate tooltip.
       tooltip 
         .html(html_info)
