@@ -4,9 +4,9 @@
 function async_func(input, callback) {
   setTimeout(function () {
     callback(input);
-    document.body.style.cursor = "auto"
+    $("body").removeClass("wait");
   }, 0);
-  document.body.style.cursor = "wait"
+  $("body").addClass("wait");
 }     
     
 function oncotreeVIS(data, container_div_id) {
@@ -504,9 +504,7 @@ function addHTMLElements(container_div_id, args) {
 //// Tree view ////
 ///////////////////
 function populateTreeView(args) {
-  populateTreeView_slow(args)
-  //async_func(args, populateTreeView_slow)
-  //document.body.style.cursor = "wait"
+  async_func(args, populateTreeView_slow)
 }
 
 function populateTreeView_slow(args){
@@ -1782,9 +1780,7 @@ function getColorCodesTable(map) {
 //// Heatmap view ////
 //////////////////////
 function populateHeatmapView(args) {
-  populateHeatmapView_slow(args)
-  //async_func(args, populateHeatmapView_slow)
-  //document.body.style.cursor = "wait"
+  async_func(args, populateHeatmapView_slow)
 }
 
 function populateHeatmapView_slow(args) {
@@ -2064,9 +2060,7 @@ function MDS(distances, dimensions) {
 }
 
 function populate2DView(args) {
-  populate2DView_slow(args)
-  //async_func(args, populate2DView_slow)
-  //document.body.style.cursor = "wait"
+  async_func(args, populate2DView_slow)
 } 
 
 function populate2DView_slow(args) {

@@ -13,6 +13,8 @@
 <script src="dependencies/tinycolor.js"></script>
 <script src="dependencies/numeric.js"></script>
 <script src="dependencies/svd.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.5.3/jspdf.min.js"></script>
+<script type="text/javascript" src="https://html2canvas.hertzen.com/dist/html2canvas.js"></script>
 <script src="oncotreevis.js"></script>
 <script src="display_tree.js"></script>
 <script src="display_tree_matching.js"></script>
@@ -52,12 +54,16 @@
 <div width=100% id="container"> </div>
 
 <script>
-function load () {
+function load() {
+
   // Get selected file.
   let file = document.getElementById("picker").files[0];
 
   // Read selected file.
   let reader = new FileReader();
+  reader.addEventListener("loadstart", (event) => {
+    $("body").addClass("wait");
+  })
   reader.onload = () => {
     let data = JSON.parse(reader.result);
     oncotreeVIS(data, "container")
@@ -107,7 +113,7 @@ $('#drop-down-cohort').change(function(){
     container.innerHTML = "<div style='position: absolute; top: 50%; left: 50%; transform: translateX(-50%) translateY(-50%); font-size:13px;'>" +
         "<table><tr><td>" +
         "The expected input is a JSON file with the following key values:<p style='margin:6px;'></p>" +
-            "<table width=650px>" +
+            "<table width=1000px>" +
             "<tr style='border-bottom: 1px solid darkgray; border-top: 1px solid darkgray'>" +
             "<td><b>Key</b></td><td style='padding-left:20px'><b>Data structure</b></td></tr>" +
             "<tr><td style='vertical-align:top'><b>trees</b></td>" +
@@ -134,8 +140,8 @@ $('#drop-down-cohort').change(function(){
                 "Example: [['AML-55-001', 'AML-33-001', 'AML-57-001', 'AML-11-001'],  ['AML-77-001'], ['AML-50-001', 'AML-102-001'], … ]" +
                 "<p style='margin:6px;'></p>" +
                 "</td></tr>" +
-            "<tr><td style='vertical-align:top'><b>pairwise_distances</b></td><td style='padding-left:20px'>" +
-                "List of dictionaries where the keys are the tree ids of the pair of trees (strings) and the distance score (float).<p style='margin:6px;'></p>" +
+            "<tr><td style='vertical-align:top'><b>pairwise_tree_distances</b></td><td style='padding-left:20px'>" +
+                "List of dictionaries where the keys are the tree ids of the pair of trees (strings) and the values are the distance scores (float).<p style='margin:6px;'></p>" +
                 "Example: [{'sample_1': 'AML-73-001', 'sample_2': 'AML-22-001', 'distance': 0.6072}, … ]" +
                 "<p style='margin:6px;'></p>" +
                 "</td></tr>" +

@@ -2,6 +2,10 @@ body* {
   font-size: 13px;
 }
 
+body.wait, body.wait *{
+    cursor: wait !important;   
+}
+
 .logo {
     font-size: inherit;
 }
