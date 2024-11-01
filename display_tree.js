@@ -406,6 +406,12 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
         return d.data.color
       }
     })
+    .style("stroke", function(d) {
+      if (d.data.size_percent == 0) {
+        return "lightgray"
+      }
+      //return "gray"
+    })
     .on("mouseover", function(d) {
       d3.select(this)
         .append("text")
