@@ -51,3 +51,19 @@ def computeUMAP(df_embeddings, df_distances, clusters, out_file_prefix):
   points = mds.fit_transform(distances)  
   savePlot(points, color_idx, out_file_prefix + "_mds.png")
 
+  '''
+  umap_colors_map = {} 
+    for idx, cluster in enumerate(tree_clusters):  
+      if len(cluster) == 1:
+        umap_colors_map[cluster[0]] = len(tree_clusters)
+      else:
+        for sample in cluster:
+          umap_colors_map[sample] = idx
+  umap_colors = [str(umap_colors_map[sample]) for sample in df_embeddings.index]
+  
+  fig = px.scatter(
+      projections, x=0, y=1
+      #color=umap_colors, labels={'color': 'tree cluster'}, hover_data={"sample": df_embeddings.index},
+      #opacity=0.75
+  )
+  '''

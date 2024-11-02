@@ -21,8 +21,8 @@ from utils_umap import computeUMAP
 from utils_oncotreevis import createOncotreeVISInput
 
 parser = argparse.ArgumentParser()
-parser.add_argument("cancer_type", choices=[
-    "tupro_aml", 
+parser.add_argument("cancer_type", choices=["tupro_melanoma", "scatrex_melanoma", "tupro_melanoma_side_by_side",
+    "tupro_aml", "tupro_ovarian", 
     "aml_morita", "aml_compass", "morita_side_by_side", 
     "noble_2022", 
     "brca_razavi", 
@@ -92,15 +92,71 @@ if os.path.isfile(args.embeddings):
 importer = JsonImporter()
 anytrees = {}
 clusters = None
-if _CANCER_TYPE == "tupro_aml":
+if _CANCER_TYPE == "tupro_melanoma":
+  anytrees = read_json_trees("data/tupro/samples_melanoma_v1.15_priority_genes_26032024.js")
+  for sample_name in anytrees:
+    anytrees[sample_name] = importer.import_(json.dumps(anytrees[sample_name]["event_tree"]))
+
+elif _CANCER_TYPE == "scatrex_melanoma":
+  raw_data_dir = "data/tupro/scatrex_melanoma_18june2024"
+  anytrees = getScatrexTrees(raw_data_dir, metadata)
+
+elif _CANCER_TYPE == "tupro_melanoma_side_by_side":
+  anytrees_cn = read_json_trees("data/tupro/samples_melanoma_v1.15_priority_genes_26032024.js")
+  for sample_name in anytrees_cn:
+    anytrees_cn[sample_name] = importer.import_(json.dumps(anytrees_cn[sample_name]["event_tree"]))
+  anytrees_scatrex = getScatrexTrees("data/tupro/scatrex_melanoma_18june2024", metadata)
+  keys = set(anytrees_cn.keys()).union(set(anytrees_scatrex.keys()))
+  anytrees = {}
+  for key in keys:
+    if key in anytrees_cn:
+      anytrees[key] = anytrees_cn[key]
+    if key in anytrees_scatrex:
+      anytrees[key + "_scatrex"] = anytrees_scatrex[key]  
+
+elif _CANCER_TYPE == "tupro_aml":
+  clusters = [["DOROBOF", "DYBEKIM"], ["DOBIFIK", "DYBAHAK", "DYBIDYF"], ["DADEDEM", "DEBEDIG"], ["DABIJUH", "UBADAFA"], ["UTAPYSO", "DUBEJIH"], ["DEJAFAB", "DOROFEG", "DUBIBEP", "DYVUHYB", "DEJIBEB", "DIBAHUC", "DEBEGUC", "DOBAFAM", "DYWYJUB"],  ["UGABOLU"]]
+  neutral_clones_aml = ['DOROBOF_3','DOROFEG_0', 'DOROFEG_1','DOMIBEG_0', 'DOMIBEG_1', 'DOMIBEG_2','DOPIBOJ_0','DADEDEM_0','DEJAFAB_0','DEJIBEB_0','DYBEKIM_0', 'DYBEKIM_1','DYVUHYB_0','DYWYJUB_0','DOBIFIK_1','DYBAHAK_0','DYBIDYF_0','DEBEGUC_0', 'DEBEGUC_1', 'DEBEGUC_2','DIBAHUC_0','DUBIBEP_0','DOBAFAM_0','DIBADAG_0','DOBEKUF_0', 'DOBEKUF_1','DUBEJIH_0','UGABOLU_0', 'UGABOLU_1','DABIJUH_0','UTAPYSO_3','DEBEDIG_0']
   anytrees = read_json_trees("data/tupro/samples_aml_v1.15_prioriry_genes.js")
+  for sample_name in anytrees:
+    anytrees[sample_name] = importer.import_(json.dumps(anytrees[sample_name]["event_tree"]))
+    for node in PreOrderIter(anytrees[sample_name]):
+      if hasattr(node,"node_label") and sample_name + "_" + str(node.node_label) in neutral_clones_aml:
+        node.is_neutral = True
+
+  del anytrees["DIBADAG"]
+  del anytrees["URAMOSE"]
+  del anytrees["DOMIBEG"]
+  del anytrees["DOBEKUF"]
+  del anytrees["DOPIBOJ"]
+
+elif _CANCER_TYPE == "tupro_ovarian":
+  anytrees = read_json_trees("data/tupro_ovarian/samples_ovarian_v1.15_priority_genes_26032024.js")
   for sample_name in anytrees:
     anytrees[sample_name] = importer.import_(json.dumps(anytrees[sample_name]["event_tree"]))
 
 elif _CANCER_TYPE == "aml_morita":
   raw_data_dir = "data/aml_morita/trees" 
   anytrees = getTreesAMLMorita(raw_data_dir)
+  for key, tree in anytrees.items():
+    node_list = list(PreOrderIter(tree))
+    for node in node_list:
+      if not node.parent:
+        continue
+      if hasattr(node, "size_percent") and abs(node.size_percent) < 0.0001:
+        # Link the direct children to the parent.
+        if len(node.children) == 0:
+          children_list = list(node.parent.children)
+          children_list.remove(node)
+          node.parent.children = children_list
+          node.parent = None
+        else:
+          for child in node.children:
+            child.parent = node.parent
+          node.parent = None
+
   clusters = [['AML-07-002', 'AML-18-002', 'AML-48-001', 'AML-104-001', 'AML-56-001', 'AML-64-001', 'AML-115-001', 'AML-08-001', 'AML-60-001', 'AML-70-001', 'AML-108-001', 'AML-109-001', 'AML-13-001', 'AML-40-001', 'AML-52-001', 'AML-63-005'], ['AML-79-001', 'AML-101-001', 'AML-110-001', 'AML-106-001', 'AML-78-001', 'AML-107-002', 'AML-117-001'], ['AML-91-001', 'AML-95-001', 'AML-93-001', 'AML-94-001', 'AML-112-001', 'AML-116-001', 'AML-118-001', 'AML-85-001', 'AML-80-001', 'AML-90-001', 'AML-103-001'], ['AML-47-001', 'AML-43-001', 'AML-23-001', 'AML-21-002', 'AML-10-001'], ['AML-87-001', 'AML-54-001', 'AML-03-001', 'AML-19-001', 'AML-01-002'], ['AML-28-001', 'AML-62-001', 'AML-15-001', 'AML-59-001', 'AML-16-001'],  ['AML-55-001', 'AML-33-001', 'AML-57-001', 'AML-11-001'],  ['AML-77-001'], ['AML-67-001'], ['AML-29-001'], ['AML-84-001'], ['AML-66-003'], ['AML-45-001'], ['AML-92-001'], ['AML-44-001'], ['AML-105-001'], ['AML-25-001'], ['AML-42-001'], ['AML-98-001'], ['AML-111-001'], ['AML-89-001'], ['AML-86-001'], ['AML-120-001', 'AML-88-002', 'AML-39-002', 'AML-73-001', 'AML-122-001', 'AML-119-001'],  ['AML-38-003', 'AML-61-001', 'AML-41-001', 'AML-74-001', 'AML-14-001'], ['AML-72-001', 'AML-46-001'], ['AML-50-001', 'AML-102-001'], ['AML-09-002', 'AML-12-001', 'AML-113-001', 'AML-75-001'], ['AML-24-001', 'AML-123-001', 'AML-02-001', 'AML-32-001', 'AML-82-001', 'AML-121-001', 'AML-26-001', 'AML-114-001', 'AML-30-001', 'AML-20-001', 'AML-99-005', 'AML-58-001', 'AML-83-002', 'AML-97-006', 'AML-37-001', 'AML-65-001', 'AML-27-001', 'AML-68-001'],  ['AML-34-001', 'AML-22-001', 'AML-06-001', 'AML-71-001', 'AML-69-001', 'AML-17-001', 'AML-49-001', 'AML-35-001', 'AML-53-001'], ['AML-36-001', 'AML-05-001', 'AML-81-001', 'AML-96-001'],  ['AML-04-003'], ['AML-31-001'], ['AML-100-001'], ['AML-76-001', 'AML-51-001']]
+
 
 elif _CANCER_TYPE == "aml_compass":
   raw_data_dir = "data/aml_compass/trees"
