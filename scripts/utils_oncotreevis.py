@@ -1,7 +1,6 @@
 import json
 from anytree.exporter import JsonExporter
 from anytree import PreOrderIter, RenderTree
-#from utils_anytree import *
 import sys
 
 def createOncotreeVISInput(anytrees, metadata, dataset_name):
@@ -23,7 +22,6 @@ def createOncotreeVISInput(anytrees, metadata, dataset_name):
             gene_events[gene] = {}
             gene_events[gene]["CNA"] = node.gene_cn_events[gene]
           del node.gene_cn_events
-          node.matching_label = 0
 
         elif "morita" in dataset_name:
           gene = node.label[0]

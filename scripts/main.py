@@ -8,6 +8,7 @@ import copy
 import json
 import sys
 from scipy.spatial import distance
+from scipy.cluster import hierarchy
 from anytree import RenderTree, PreOrderIter
 from anytree.importer import JsonImporter
 
@@ -19,6 +20,8 @@ from utils_tracerx_format import getTreesInTracerxFormat
 from utils_conipher import getConipherTrees
 from utils_umap import computeUMAP
 from utils_oncotreevis import createOncotreeVISInput
+from utils_clustering import getSimilarityClusters
+from utils_clustering import jaccard_distance
 
 parser = argparse.ArgumentParser()
 parser.add_argument("cancer_type", choices=["tupro_melanoma", "scatrex_melanoma", "tupro_melanoma_side_by_side",
@@ -116,19 +119,60 @@ elif _CANCER_TYPE == "tupro_melanoma_side_by_side":
 
 elif _CANCER_TYPE == "tupro_aml":
   clusters = [["DOROBOF", "DYBEKIM"], ["DOBIFIK", "DYBAHAK", "DYBIDYF"], ["DADEDEM", "DEBEDIG"], ["DABIJUH", "UBADAFA"], ["UTAPYSO", "DUBEJIH"], ["DEJAFAB", "DOROFEG", "DUBIBEP", "DYVUHYB", "DEJIBEB", "DIBAHUC", "DEBEGUC", "DOBAFAM", "DYWYJUB"],  ["UGABOLU"]]
-  neutral_clones_aml = ['DOROBOF_3','DOROFEG_0', 'DOROFEG_1','DOMIBEG_0', 'DOMIBEG_1', 'DOMIBEG_2','DOPIBOJ_0','DADEDEM_0','DEJAFAB_0','DEJIBEB_0','DYBEKIM_0', 'DYBEKIM_1','DYVUHYB_0','DYWYJUB_0','DOBIFIK_1','DYBAHAK_0','DYBIDYF_0','DEBEGUC_0', 'DEBEGUC_1', 'DEBEGUC_2','DIBAHUC_0','DUBIBEP_0','DOBAFAM_0','DIBADAG_0','DOBEKUF_0', 'DOBEKUF_1','DUBEJIH_0','UGABOLU_0', 'UGABOLU_1','DABIJUH_0','UTAPYSO_3','DEBEDIG_0']
+
   anytrees = read_json_trees("data/tupro/samples_aml_v1.15_prioriry_genes.js")
+
+  # Populate `matching_labels`.
+  def gene_state_to_string(gene, cn, neutral_state):
+    gene = gene.split(".")[0]
+    if cn > 0:
+      return gene
+    else:
+      if cn == -neutral_state:
+        return gene + "_lost"
+      else:
+        return gene + "_del"    
+
+  node_gene_map = {}
   for sample_name in anytrees:
+    neutral_state = 2
     anytrees[sample_name] = importer.import_(json.dumps(anytrees[sample_name]["event_tree"]))
     for node in PreOrderIter(anytrees[sample_name]):
-      if hasattr(node,"node_label") and sample_name + "_" + str(node.node_label) in neutral_clones_aml:
-        node.is_neutral = True
+      if hasattr(node,"gene_cn_events") and not node.is_neutral:
+        node_key = "_".join([sample_name, str(node.node_id)])
+        gene_set = set()
+        for gene in node.gene_cn_events:
+          gene_set.add(gene_state_to_string(gene, node.gene_cn_events[gene], neutral_state))
+        node_gene_map[node_key] = gene_set 
 
-  del anytrees["DIBADAG"]
-  del anytrees["URAMOSE"]
-  del anytrees["DOMIBEG"]
-  del anytrees["DOBEKUF"]
-  del anytrees["DOPIBOJ"]
+  nodes = list(node_gene_map.keys())
+  df_jaccard_distances = pd.DataFrame(0, columns=nodes, index=nodes).astype(float)
+  for node_1 in nodes:
+    for node_2 in nodes:
+      if node_1 < node_2:
+        dist = jaccard_distance(node_gene_map[node_1], node_gene_map[node_2]) 
+        df_jaccard_distances[node_1][node_2] = dist
+        df_jaccard_distances[node_2][node_1] = dist
+
+  # Cluster the clones.
+  clustering = hierarchy.linkage(
+    distance.pdist(df_jaccard_distances), metric="euclidean", method="ward")
+  clone_clusters = getSimilarityClusters(clustering, nodes, df_jaccard_distances, distance_threshold=0.5) 
+  print(clone_clusters)
+
+  clone_labels = {}
+  clone_cluster_id = 2 # start the labeling of the malignant clones from 2 (0 is reserved for the root and 1 for the neutral clones).
+  for cluster in clone_clusters:
+    for clone in cluster:
+      clone_labels[clone] = clone_cluster_id
+    clone_cluster_id += 1
+
+  for sample_name, tree in anytrees.items():
+    for node in PreOrderIter(tree):
+      node_key = "_".join([sample_name, str(node.node_id)])
+      if node.parent and node_key in clone_labels:
+        if not hasattr(node, "is_neutral") or (hasattr(node, "is_neutral") and not node.is_neutral):
+          node.matching_label = clone_labels[node_key]
 
 elif _CANCER_TYPE == "tupro_ovarian":
   anytrees = read_json_trees("data/tupro_ovarian/samples_ovarian_v1.15_priority_genes_26032024.js")
