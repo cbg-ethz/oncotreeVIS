@@ -116,14 +116,24 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
     .attr("orient", "auto")
     .style("stroke", function(d) {
       if(d.data.conserved_parent_node_branch && !tree_info_view) { 
-        return "dimgray"
+        return "#800000"//"dimgray"
       } 
       if (d.parent != null && d.data.gene_events) {
         cn_event = get_cn_event_for_gene(d, target_gene);
         return get_color_for_cn_event(cn_event);
       }
       return "darkgray"
-    });
+    })
+    /*.style("fill", function(d) {
+      if(d.data.conserved_parent_node_branch && !tree_info_view) {
+        return "#d21404"//"dimgray"
+      }
+      if (d.parent != null && d.data.gene_events) {
+        cn_event = get_cn_event_for_gene(d, target_gene);
+        return get_color_for_cn_event(cn_event);
+      }
+      return "darkgray"
+    })*/
 
   // Add nodes.
   var node = g
