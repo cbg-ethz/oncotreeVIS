@@ -32,7 +32,10 @@ function oncotreeVIS_slow(args) {
   for (var sample_name in trees) {
     var tree_json = trees[sample_name]["tree"]
     var node_list = getTreeNodes(tree_json)
-    for (var node of node_list) {    
+    for (var node of node_list) {   
+      if (!node.parent && !node.data.matching_label) { // root
+        node.matching_label = -1
+      } 
       if (node.data.matching_label) {
         node.data.matching_label = node.data.matching_label.toString()
       }
@@ -825,7 +828,7 @@ function getBranches(tree_json) {
   branches = new Set()
   node_list = getTreeNodes(tree_json)
   for (node of node_list) {
-    if(node.parent) {
+    if(node.parent && node.parent.data.matching_label && node.data.matching_label) {
       branches.add(node.parent.data.matching_label + "_" + node.data.matching_label)
     }
   }
@@ -1562,6 +1565,8 @@ function applyTextStyle(gene, highlighted_genes) {
     return "<b>" + text + "</b>"
   } else if (style == "italic") {
     return "<i>" + text + "</i>"
+  } else if (style == "underline") {
+    return "<u>" + text + "</u>"
   } else {
     return "<font color=" + style + ">" + text + "</font>"
   }
