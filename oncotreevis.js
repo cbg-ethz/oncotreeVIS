@@ -1745,6 +1745,16 @@ function getMetadataTable(metadata_samples) {
       tr.appendChild(td)
     }
   }
+  // Add 2 empty rows.
+  for (var idx of [1,2]) {
+    var tr = document.createElement('TR');
+    table.appendChild(tr);
+    var td = document.createElement('TD');
+    td.style.backgroundColor="rgba(0, 0, 0, 0)"
+    td.appendChild(document.createTextNode("."));
+    td.style.color="rgba(0, 0, 0, 0)"
+    tr.appendChild(td)
+  }
   return table
 }
 
