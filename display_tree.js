@@ -454,7 +454,6 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
     .text(function(d) {
       if (d.parent && d.data.matching_label && d.data.display_node_label && !tree_info_view) {
         label = (d.data.matching_label).toString()
-        return label
         // Count 5.5px per digit.
         if (2 * circle_ray(d.data.size_percent) >= label.length * 5.5) {
           return label
