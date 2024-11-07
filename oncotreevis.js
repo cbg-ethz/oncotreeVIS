@@ -1163,9 +1163,13 @@ function showTreeInfo(sample_name, args) {
   if (knn && mapSize(knn)) {
     knn_keys = Object.keys(knn)
     sample_matches = knn_keys.filter((key) => key.startsWith(sample_name))
-    sample_matches.sort((key_1, key_2) => knn[key_2]["similarity"] - knn[key_1]["similarity"])
-    for(let key of sample_matches) {
-      async_display_tree_matching(knn_box_id, knn[key])
+    if (sample_matches.length) {
+      sample_matches.sort((key_1, key_2) => knn[key_2]["similarity"] - knn[key_1]["similarity"])
+      for(let key of sample_matches) {
+        async_display_tree_matching(knn_box_id, knn[key])
+      }
+    } else {
+      knn_box_div.innerHTML = "<i>No matching trees found.</i>"
     }
   } else {
     knn_box_div.innerHTML = "<i>kNN not computed either because node `matching_label` attributes are missing, or the number of trees " +
