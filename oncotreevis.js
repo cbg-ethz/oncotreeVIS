@@ -1562,19 +1562,23 @@ function isAntibody(interaction_types) {
 //// Populate cluster info ////
 ///////////////////////////////
 function applyTextStyle(gene, highlighted_genes) {
-  if (gene in highlighted_genes) {
-    style = highlighted_genes[gene]
-    if (style == "bold") {
-      return "<b>" + gene + "</b>"
-    } else if (style == "italic") {
-      return "<i>" + gene + "</i>"
-    } else if (style == "underline") {
-      return "<u>" + gene + "</u>"
+  if (highlighted_genes) {
+    if (gene in highlighted_genes) {
+      style = highlighted_genes[gene]
+      if (style == "bold") {
+        return "<b>" + gene + "</b>"
+      } else if (style == "italic") {
+        return "<i>" + gene + "</i>"
+      } else if (style == "underline") {
+        return "<u>" + gene + "</u>"
+      } else {
+        return "<font color=" + style + ">" + gene + "</font>"
+      }
     } else {
-      return "<font color=" + style + ">" + gene + "</font>"
+      return "<font color=lightgray>" + gene + "</font>"
     }
   } else {
-    return "<font color=lightgray>" + gene + "</font>"
+    return gene
   }
 }
 
@@ -1610,12 +1614,15 @@ function showClusterInfo_slow(args) {
     return; 
   }
 
-  // TODOM
   bg_color = tinycolor(cluster_bg_color).darken(30).desaturate(40).toHexString()
   div_matches = createDivContainer("cluster_matches")
   div_matches.style.direction = "ltr"
   div_matches.innerHTML = "<strong style='background-color:" + bg_color + "; display:block;'>&nbsp;Genes in matching nodes<br/></strong>"
   appendLineBreak(div_matches)
+
+  //div_matches.append(createChromosomeTable([]))
+  //appendLineBreak(div_matches)
+
   for (let [color, events] of matching_nodes_details.entries()) {
     div_matches.innerHTML += '<i class="fa fa-circle" style="font-size:18px;color:' + color + '"></i> &nbsp;'
     for (let [event, gene_set] of events.entries()) {
@@ -1707,6 +1714,22 @@ function getMetadataColorMap(sample_metadata_map) {
     }
   }
   return [sample_metadata_colors, metadata_color_map]
+}
+
+function createChromosomeTable(affected_chromosomes) {
+  chr_list = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16',
+      '17', '18', '19', '20', '21', '22', 'X', 'Y']
+  var table = document.createElement("table")
+  var tr = document.createElement('TR')
+  table.appendChild(tr)
+  for (chr of chr_list) {
+    var td = document.createElement('TD')
+    td.appendChild(document.createTextNode(chr))
+    if (affected_chromosomes.includes("<b>" + chr + "</b>")) {
+      td.style.backgroundColor = "tomato"
+    }
+  }
+  return table
 }
 
 function getMetadataTable(metadata_samples) {
