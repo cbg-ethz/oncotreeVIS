@@ -615,7 +615,8 @@ function populateTreeView_slow(args){
         args_cluster["tree_info_div_id"] = tree_info_div_id
         args_cluster["cluster_bg_color"] = cluster_color
         args_cluster["cluster_metadata"] = trees[cluster[0]]["sample_metadata_colors"]
-        args_cluster["table_color_codes"] = trees[cluster[0]]["table_color_codes"];
+        args_cluster["table_color_codes"] = trees[cluster[0]]["table_color_codes"]
+        args_cluster["highlighted_genes"] = data["highlighted_genes"];
         (function(args_cluster) {
           click_cluster_details_div.addEventListener('click', () => { showClusterInfo(args_cluster) })
         })(args_cluster);
@@ -1561,21 +1562,27 @@ function isAntibody(interaction_types) {
 //// Populate cluster info ////
 ///////////////////////////////
 function applyTextStyle(gene, highlighted_genes) {
-  if (!highlighted_genes || !(gene in highlighted_genes)) {
-    return gene
-  }
-  style = highlighted_genes[gene]
-  if (style == "bold") {
-    return "<b>" + text + "</b>"
-  } else if (style == "italic") {
-    return "<i>" + text + "</i>"
-  } else if (style == "underline") {
-    return "<u>" + text + "</u>"
+  if (gene in highlighted_genes) {
+    style = highlighted_genes[gene]
+    if (style == "bold") {
+      return "<b>" + gene + "</b>"
+    } else if (style == "italic") {
+      return "<i>" + gene + "</i>"
+    } else if (style == "underline") {
+      return "<u>" + gene + "</u>"
+    } else {
+      return "<font color=" + style + ">" + gene + "</font>"
+    }
   } else {
-    return "<font color=" + style + ">" + text + "</font>"
+    return "<font color=lightgray>" + gene + "</font>"
   }
 }
+
 function showClusterInfo(args) {
+  async_func(args, showClusterInfo_slow)
+} 
+
+function showClusterInfo_slow(args) {
   var cluster_bg_color = args.cluster_bg_color
   var cluster_metadata = args.cluster_metadata
   var table_color_codes = args.table_color_codes
