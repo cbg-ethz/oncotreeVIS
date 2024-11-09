@@ -486,7 +486,7 @@ function addHTMLElements(container_div_id, args) {
   tree_info_div.style.width = "max(24%, 300px)" 
   //tree_info_div.style.maxWidth = "430px"
   //tree_info_div.style.minWidth = "300px"
-  tree_info_div.style.padding = "7px"
+  tree_info_div.style.padding = "15px"
   tree_info_div.style.float = "right"
   //tree_info_div.style.left = "calc(73% + 2px)"
   tree_info_div.style.right = "15px"
@@ -1562,12 +1562,12 @@ function isAntibody(interaction_types) {
 //// Populate cluster info ////
 ///////////////////////////////
 function applyTextStyle(gene, highlighted_genes) {
-  if (gene in gene_chr_map) {
-    gene = "<span style='cursor:default;' title='chr" + gene_chr_map[gene] + "'>" + gene + "</span>"
-  }
   if (highlighted_genes) {
     if (gene in highlighted_genes) {
       style = highlighted_genes[gene]
+      if (gene in gene_chr_map) {
+        gene = "<span style='cursor:default;' title='chr" + gene_chr_map[gene] + "'>" + gene + "</span>"
+      } 
       if (style == "bold") {
         return "<b>" + gene + "</b>"
       } else if (style == "italic") {
@@ -1643,11 +1643,12 @@ function showClusterInfo_slow(args) {
     div_matches.innerHTML += '<i class="fa fa-circle" style="font-size:18px;color:' + color + '"></i> &nbsp;'
     for (let [event, gene_set] of events.entries()) {
       genes = Array.from(gene_set).sort()
+      genes = genes.filter(e => !e.includes('.'))
       div_matches.innerHTML += event + ": " + applyTextStyle(genes[0], highlighted_genes)
       for (var gene of genes.slice(1,genes.length+1)) {
         div_matches.innerHTML += ", " + applyTextStyle(gene, highlighted_genes)
       }
-      div_matches.innerHTML += ";"
+      div_matches.innerHTML += "; "
     }
     appendHalfLineBreak(div_matches)
   }
