@@ -1562,6 +1562,9 @@ function isAntibody(interaction_types) {
 //// Populate cluster info ////
 ///////////////////////////////
 function applyTextStyle(gene, highlighted_genes) {
+  if (gene in gene_chr_map) {
+    gene = "<span style='cursor:default;' title='chr" + gene_chr_map[gene] + "'>" + gene + "</span>"
+  }
   if (highlighted_genes) {
     if (gene in highlighted_genes) {
       style = highlighted_genes[gene]
@@ -1620,8 +1623,21 @@ function showClusterInfo_slow(args) {
   div_matches.innerHTML = "<strong style='background-color:" + bg_color + "; display:block;'>&nbsp;Genes in matching nodes<br/></strong>"
   appendLineBreak(div_matches)
 
-  //div_matches.append(createChromosomeTable([]))
-  //appendLineBreak(div_matches)
+  affected_chromosomes = new Set()
+  for (let [color, events] of matching_nodes_details.entries()) {
+    for (let [event, gene_set] of events.entries()) { 
+      for (let gene of Array.from(gene_set)) {
+        if (gene in gene_chr_map) {
+          affected_chromosomes.add(gene_chr_map[gene])
+        }
+      }
+    }
+  }
+  if (affected_chromosomes.size) {
+    div_matches.innerHTML += "<b>Affected chromosomes:<br/></b>"
+    div_matches.append(createChromosomeTable(Array.from(affected_chromosomes)))
+    appendLineBreak(div_matches)
+  }
 
   for (let [color, events] of matching_nodes_details.entries()) {
     div_matches.innerHTML += '<i class="fa fa-circle" style="font-size:18px;color:' + color + '"></i> &nbsp;'
@@ -1720,14 +1736,18 @@ function createChromosomeTable(affected_chromosomes) {
   chr_list = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16',
       '17', '18', '19', '20', '21', '22', 'X', 'Y']
   var table = document.createElement("table")
+  table.style.border = "1px solid darkgray"
   var tr = document.createElement('TR')
   table.appendChild(tr)
   for (chr of chr_list) {
     var td = document.createElement('TD')
+    td.style.border = "1px solid darkgray"
+    td.fontWeight = "bold"
     td.appendChild(document.createTextNode(chr))
-    if (affected_chromosomes.includes("<b>" + chr + "</b>")) {
+    if (affected_chromosomes.includes(chr)) {
       td.style.backgroundColor = "tomato"
     }
+    tr.appendChild(td)
   }
   return table
 }

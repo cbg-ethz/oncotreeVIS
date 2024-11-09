@@ -329,7 +329,7 @@ function displayTree(div_id, tree_label, tree_data, target_gene, target_drug, dr
         }
         var gene_events = d.data.gene_event_categories
         var gene_events_with_details = d.data.gene_event_categories_details
-        if (gene_events && mapSize(gene_events)) {
+        if (gene_events && gene_events.size) {
           html_info += "<p style='margin:6px;'></p><b>Gene events:</b><br/>"
           var keys = Array.from(gene_events.keys()).sort().reverse()
           for (event of keys) {
