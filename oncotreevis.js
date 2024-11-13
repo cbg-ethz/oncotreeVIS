@@ -32,7 +32,7 @@ function oncotreeVIS_slow(args) {
   for (var sample_name in trees) {
     var tree_json = trees[sample_name]["tree"]
     var node_list = getTreeNodes(tree_json)
-    for (var node of node_list) {   
+    for (var node of node_list) {  
       if (!node.parent && !node.data.matching_label) { // root
         node.matching_label = -1
       } 
@@ -892,10 +892,11 @@ function populateGeneStates(tree){
       const [gene_events, gene_events_with_details] = getGeneCategoriesInNode(node)
       node.data.gene_event_categories = gene_events
       node.data.gene_event_categories_details = gene_events_with_details
+      node_gene_events = deepCopy(node.data.gene_events)
       if (!node.parent) { // root
-        node.data.gene_states = node.data.gene_events
+        node.data.gene_states = node_gene_events
       } else {
-        node.data.gene_states = updateGeneStates(node.data.gene_events, node.parent.data.gene_states)
+        node.data.gene_states = updateGeneStates(node_gene_events, node.parent.data.gene_states)
       }
     } else {
       node.data.gene_states = new Map()
