@@ -1624,23 +1624,22 @@ function showClusterInfo_slow(args) {
   div_matches.innerHTML = "<strong style='background-color:" + bg_color + "; display:block;'>&nbsp;Genes in matching nodes<br/></strong>"
   appendLineBreak(div_matches)
 
-  affected_chromosomes = new Set()
   for (let [color, events] of matching_nodes_details.entries()) {
-    for (let [event, gene_set] of events.entries()) { 
+
+    affected_chromosomes = new Set()
+    for (let [event, gene_set] of events.entries()) {
       for (let gene of Array.from(gene_set)) {
         if (gene in gene_chr_map) {
           affected_chromosomes.add(gene_chr_map[gene])
         }
       }
     }
-  }
-  if (affected_chromosomes.size) {
-    div_matches.innerHTML += "<b>Affected chromosomes:<br/></b>"
-    div_matches.append(createChromosomeTable(Array.from(affected_chromosomes)))
-    appendLineBreak(div_matches)
-  }
+    if (affected_chromosomes.size) {
+      div_matches.innerHTML += "<b>Affected chromosomes:<br/></b>"
+      div_matches.append(createChromosomeTable(Array.from(affected_chromosomes)))
+      appendLineBreak(div_matches)
+    }
 
-  for (let [color, events] of matching_nodes_details.entries()) {
     div_matches.innerHTML += '<i class="fa fa-circle" style="font-size:18px;color:' + color + '"></i> &nbsp;'
     for (let [event, gene_set] of events.entries()) {
       genes = Array.from(gene_set).sort()
