@@ -214,6 +214,23 @@ function oncotreeVIS_slow(args) {
     }
   }
 
+  // Metadata all samples.
+  sample_list = []
+  for (const [i, cluster] of clusters.entries()) {
+    sample_list.push(...cluster)
+  }
+  var sample_metadata_map = {}
+  for (sample_name of sample_list) {
+    if ("metadata" in trees[sample_name]) {
+      sample_metadata = trees[sample_name]["metadata"]
+      sample_metadata_map[sample_name] = sample_metadata
+    }
+  }
+  [sample_metadata_colors, metadata_color_map] = getMetadataColorMap(sample_metadata_map)
+  table_color_codes = getColorCodesTable(metadata_color_map)
+  trees[clusters[0][0]]["cohort_metadata"] = sample_metadata_colors
+  trees[clusters[0][0]]["cohort_table_color_codes"] = table_color_codes
+
   // kNN
   knn_json = {}
   if ("pairwise_subclone_distances" in data) {
@@ -298,7 +315,8 @@ function getJSONNodes(sample_name, tree_json) {
         "matching_label": node.data.matching_label,
         "color": "white",
         "dx": node.x,
-        "is_root": is_root
+        "is_root": is_root,
+        "is_neutral": node.data.is_neutral
     })
     if (node.parent) {
       json_links.push({
@@ -1621,11 +1639,12 @@ function showClusterInfo_slow(args) {
   bg_color = tinycolor(cluster_bg_color).darken(30).desaturate(40).toHexString()
   div_matches = createDivContainer("cluster_matches")
   div_matches.style.direction = "ltr"
-  div_matches.innerHTML = "<strong style='background-color:" + bg_color + "; display:block;'>&nbsp;Genes in matching nodes<br/></strong>"
-  appendLineBreak(div_matches)
+  if (matching_nodes_details.size) {
+    div_matches.innerHTML = "<strong style='background-color:" + bg_color + "; display:block;'>&nbsp;Genes in matching nodes<br/></strong>"
+    appendLineBreak(div_matches)
+  }
 
   for (let [color, events] of matching_nodes_details.entries()) {
-
     affected_chromosomes = new Set()
     for (let [event, gene_set] of events.entries()) {
       for (let gene of Array.from(gene_set)) {
@@ -2041,6 +2060,51 @@ function populateHeatmapView_slow(args) {
           args_cluster["cluster_bg_color"] = cluster_starts[d.sample_1]["cluster_bg_color"]
           args_cluster["cluster_metadata"] = cluster_starts[d.sample_1]["cluster_metadata"]
           args_cluster["table_color_codes"] = cluster_starts[d.sample_1]["table_color_codes"];
+          showClusterInfo(args_cluster)
+      }) 
+
+  // Add rectangle for all the samples.
+  num_samples = sample_list.length
+  svg.selectAll()
+    .data(distances)
+    .enter()
+    .append("rect") 
+      .attr("x", function(d) {
+        if (d.sample_1 == clusters[0][0]  && d.sample_1 == d.sample_2) {
+          return x(d.sample_1)
+        }
+      }) 
+      .attr("y", function(d) {
+        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) {
+          return y(d.sample_1)
+        }
+      })
+      .attr("width", function(d) {
+        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) { 
+          return  num_samples * x.bandwidth()
+        }
+      })
+      .attr("height", function(d) {
+        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) { 
+          return  num_samples * y.bandwidth()
+        }
+      }) 
+      .style("fill", "none")
+      .style("stroke", function(d) { //"#0b559f"
+        if (d.sample_1 == clusters[0][0]){
+          return "LightGreen"
+        }
+      })
+      .style("stroke-width", "3")
+      .style("cursor", "pointer")
+      .on("click", function(d){
+          args_cluster = {}
+          args_cluster["matching_nodes_details"] = new Map()
+          args_cluster["tree_info_div_id"] = tree_info_div_id
+          args_cluster["highlighted_genes"] = []
+          args_cluster["cluster_bg_color"] = "white"
+          args_cluster["cluster_metadata"] = trees[clusters[0][0]]["cohort_metadata"]
+          args_cluster["table_color_codes"] = trees[clusters[0][0]]["cohort_table_color_codes"];
           showClusterInfo(args_cluster)
       })
 
