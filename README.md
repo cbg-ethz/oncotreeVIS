@@ -2,7 +2,10 @@
 <img src="./docs/logo.png" width="300" height="auto">
 </div>
 
+[![bioRxiv](https://img.shields.io/badge/BioRxiv-10.1101/2024.11.15.623847-blue.svg)](https://www.biorxiv.org/content/10.1101/2024.11.15.623847v1)
+
 # oncotreeVIS – An interactive graphical user interface  for visualising mutation tree cohorts
+
 
 <br/>
 
