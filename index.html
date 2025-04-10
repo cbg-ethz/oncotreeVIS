@@ -37,7 +37,7 @@
 <div style="display: flex">
   <div style="background-color: #b4a7d6; flex-grow: 1; height: 60px"></div>
   <div style="width: 300px; height: 60px; background: radial-gradient(#ffffff 0%, #b4a7d6); text-align: center; ">
-    <p id="logo" style="font-family:calibri; font-size:40px; letter-spacing: 0.5px;"><b>&nbsp; oncotreeVIS &nbsp;</b></p>
+    <p id="logo" style="font-family:Calibri; font-size:40px; letter-spacing: 0.5px;"><b>&nbsp; oncotreeVIS &nbsp;</b></p>
   </div> 
   <div style="background-color: #b4a7d6; height: 60px; padding-top:5px;">
     &nbsp;&nbsp;<a style="text-decoration: none"  href="https://github.com/cbg-ethz/oncotreeVIS" target="new">
@@ -49,11 +49,13 @@
   </div>
 </div><br/>
 
+<div style="margin-left: 10px;">
 <div width="100%" style="font-size: 13px;">
   Select predefined or custom mutation tree cohort: <select id="drop-down-cohort"></select><br/>
 </div><br/>                 
 
 <div width=100% id="container"> </div>
+</div>
 
 <script>
 function load() {
@@ -112,24 +114,28 @@ $('#drop-down-cohort').change(function(){
   if (cohort_name.includes(custom_file_option_text)) {
     //$('input[type=file]').trigger('click');
     container = document.getElementById("container")
-    container.innerHTML = "<div style='position: absolute; top: 60%; left: 50%; transform: translateX(-50%) translateY(-50%); " +
-        "font-size:13px; width:90%; height:80%; overflow-y:scroll; overflow:scroll'>" +
-        "<table><tr><td>" +
+    container.innerHTML = "<div style=' " + //top: 55%; left: 50%; transform: translateX(-50%) translateY(-50%); " +
+        "font-size:13px; width:max(667px,70%); height:100%; overflow-y:scroll; overflow:scroll'>" +
+        "<table><tr><td colspan=2>" +
+        "<center>The JSON files used for the predefined datasets are available on " +
+        "<a href='https://github.com/cbg-ethz/oncotreeVIS/tree/main/data' target=git>github</a>.</center><br/><br/></td></tr><tr><td>" +
         "The expected input is a JSON file with the following key values:<p style='margin:6px;'></p>" +
-            "<table width=650px>" +
-            "<tr style='border-bottom: 1px solid darkgray; border-top: 1px solid darkgray'>" +
+            "<table>" +
+            "<tr style='border-bottom: 2px solid darkgray; border-top: 2px solid darkgray'>" +
             "<td><b>Key</b></td><td style='padding-left:20px'><b>Data structure</b></td></tr>" +
-            "<tr><td style='vertical-align:top'><b>trees</b></td>" +
+            "<tr style='border-bottom: 1px solid darkgray;'><td style='vertical-align:top'><b>trees</b></td>" +
             "<td style='padding-left:20px; text-align:justify; vertical-align:top'>" +
-                "Nested data structure representing a tree in JSON format, as used in D3.js and anytree (python) libraries. " +
+                "Dictionary where the key is the sample id and the value is another dictionary containing the tree structure (required) " + 
+                "and the sample metadata (optional). <p style='margin:6px;'></p>" + 
+                "The tree structure is an hierarchical data structure in JSON format, as used in D3.js and anytree (python) libraries. " +
                 "Each node has one or more child nodes (<i>node.children</i>), except for the leaves. In addition, each node " + 
                 "has the following attributes: <i>node_id</i> (string/int, required), </i>matching_label</i> (required), " +
-                "<i>size_percent</i> (float, optional), <i>metadata</i> (dictionary, optional), <i>gene_events</i> (dictionary, optional), " + 
+                "<i>size_percent</i> (float, optional), <i>gene_events</i> (dictionary, optional), " + 
                 "<i>is_neutral</i> (boolean, optional). The gene_events attribute has two predefined keys (\"mutation\" and \"CNA\"), " +
                 "but any other key names can be used. The values for the \"CNA\" event key are specifically interpreted as amplification " +
                 "or deletion amounts w.r.t. the neutral states. The first three letters of the event key are used " +
                 "in the visualization for displaying a summary for the gene events.<p style='margin:6px;'></p>"+
-                "Example of JSON tree: \"AML-03-001\": {\"tree\": {\"node_id\": 0, \"matching_label\": 0, \"children\": " +
+                "<font style='font-weight: 500;'>Example</font>: \"AML-03-001\": {\"tree\": {\"node_id\": 0, \"matching_label\": 0, \"children\": " +
                 "[{\"node_id\": 407, \"matching_label\": 14, \"size_percent\": 0.228, \"gene_events\": {\"FLT3-ITD\": {\"mutation\": \"\"}}, " +
                 "\"children\": [{\"node_id\": 408, \"matching_label\": 5, \"size_percent\": 0.772, \"gene_events\": {\"NPM1\": {\"mutation\": " +
                 "\"p.L287fs\"}}}]}]}, \"metadata\": {\"Chemo\": \"No\", \"Gender\": \"Female\", \"VitalStatus\": \"Dead NOS\", \"age\": 59, "+
@@ -138,26 +144,28 @@ $('#drop-down-cohort').change(function(){
                 "\"AKT3\": {\"CNA\": 2}, \"JAK2\": {\"CNA\": -1}, \"TP53\": {\"CNA\”: \"-\", \"expression\": \"0.34\"}}" +
                 "<p style='margin:6px;'></p>" +
                 "</td></tr>" +
-            "<tr><td style='vertical-align:top'><b>clusters</b></td>" + 
+            "<tr style='border-bottom: 1px solid darkgray;'><td style='vertical-align:top'><b>clusters</b></td>" + 
                 "<td style='padding-left:20px'>List of lists of tree ids (strings).<p style='margin:6px;'></p>" +
-                "Example: [['AML-55-001', 'AML-33-001', 'AML-57-001', 'AML-11-001'],  ['AML-77-001'], ['AML-50-001', 'AML-102-001'], … ]" +
+                "<font style='font-weight: 500;'>Example:</font> [['AML-55-001', 'AML-33-001', 'AML-57-001', 'AML-11-001'],  " + 
+	        "['AML-77-001'], ['AML-50-001', 'AML-102-001'], … ]" +
                 "<p style='margin:6px;'></p>" +
                 "</td></tr>" +
-            "<tr><td style='vertical-align:top'><b>pairwise_tree_distances</b></td><td style='padding-left:20px'>" +
-                "List of dictionaries where the keys are the tree ids of the pair of trees (strings) and the values are the distance scores (float).<p style='margin:6px;'></p>" +
-                "Example: [{'sample_1': 'AML-73-001', 'sample_2': 'AML-22-001', 'distance': 0.6072}, … ]" +
+            "<tr style='border-bottom: 1px solid darkgray;'><td style='vertical-align:top'><b>pairwise_tree_distances</b></td><td style='padding-left:20px'>" +
+                "List of dictionaries where the keys are the tree ids of the pair of trees (strings) and the values are the distance scores (float). " +
+                "<p style='margin:6px;'></p>" +
+                "<font style='font-weight: 500;'>Example:</font> [{'sample_1': 'AML-73-001', 'sample_2': 'AML-22-001', 'distance': 0.6072}, … ]" +
                 "<p style='margin:6px;'></p>" +
                 "</td></tr>" +
-            "<tr style='border-bottom: 1px solid darkgray;'><td style='vertical-align:top'><b>highlighted_genes</b></td><td style='padding-left:20px'>" +
+            "<tr style='border-bottom: 2px solid darkgray;'><td style='vertical-align:top'><b>highlighted_genes</b></td><td style='padding-left:20px'>" +
                 "Styles used: color code or keywords 'bold', 'italic', 'underline'.<p style='margin:6px;'></p>" +
-                "Example: {\"JAK2\": \"bold\", \"PTEN\": \"italic\", \"TP53\": \"#b4a7d6\", \"FLT3-ITD\": \"lightsteelblue\"}" +
+                "<font style='font-weight: 500;'>Example:</font> {\"JAK2\": \"bold\", \"PTEN\": \"italic\", \"TP53\": " + 
+                "\"#b4a7d6\", \"FLT3-ITD\": \"lightsteelblue\"}" +
                 "<p style='margin:6px;'></p>" +
                 "</td></tr>" +
           "</table>" +
-          "<br/>The JSON files used for the predefined datasets are available on " +
-          "<a href='https://github.com/cbg-ethz/oncotreeVIS/tree/main/data' target=git>github</a>." +
-        "</td><td style='padding:50px'><b>Load JSON file:</b><p style='margin:6px;'></p><input type=file id='picker' onchange='load()'<br/><br/><br/>" +
-        "<i> <font color=gray>The data is processed on the fly on the client's side and remains confidential.</font></i></td></tr></table><br/><br/></div>"
+        "</td><td style='padding-left:100px; width=300px'><b>Load JSON file:</b><p style='margin:6px;'></p><input type=file id='picker' onchange='load()'<br/><br/><br/>" +
+        "<i> <font color=gray>The data is processed on the fly on the client's side and remains confidential.</font></i></td></tr></table><br/><br/>" +
+        "</div>"
   } else {
     data = datasets[cohort_name]["data"]
     data["matching_trees"] = datasets[cohort_name]["matching_trees"]
