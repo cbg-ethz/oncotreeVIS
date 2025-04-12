@@ -3,7 +3,7 @@
 </div>
 
 [![bioRxiv](https://img.shields.io/badge/BioRxiv-10.1101/2024.11.15.623847-blue.svg)](https://www.biorxiv.org/content/10.1101/2024.11.15.623847v1)
-[![License](https://img.shields.io/badge/license-MIT-blue)](https://mit-license.org/)
+[![License](https://img.shields.io/badge/license-MIT-red)](https://mit-license.org/)
 
 # oncotreeVIS – An interactive graphical user interface for visualising mutation tree cohorts
 
