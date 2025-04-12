@@ -112,17 +112,16 @@ $('#drop-down-cohort').change(function(){
 
   var cohort_name = e.options[e.selectedIndex].text
   if (cohort_name.includes(custom_file_option_text)) {
-    //$('input[type=file]').trigger('click');
     container = document.getElementById("container")
-    container.innerHTML = "<div style=' " + //top: 55%; left: 50%; transform: translateX(-50%) translateY(-50%); " +
-        "font-size:13px; width:max(667px,70%); height:100%; overflow-y:scroll; overflow:scroll'>" +
+    container.innerHTML = "<div style='display: block; margin-left: auto; margin-right: auto; padding-left:10%; padding-right:10%;" +
+        "font-size:13px; min-width:80%; height:50%; overflow:scroll;'>" +
         "<table><tr><td colspan=2>" +
-        "<center>The JSON files used for the predefined datasets are available on " +
-        "<a href='https://github.com/cbg-ethz/oncotreeVIS/tree/main/data' target=git>github</a>.</center><br/><br/></td></tr><tr><td>" +
+        "The JSON files used for the predefined datasets are available on " +
+        "<a href='https://github.com/cbg-ethz/oncotreeVIS/tree/main/data' target=git>github</a>.<br/></td></tr><tr><td>" +
         "The expected input is a JSON file with the following key values:<p style='margin:6px;'></p>" +
-            "<table>" +
+            "<table style='min-width:560px'>" +
             "<tr style='border-bottom: 2px solid darkgray; border-top: 2px solid darkgray'>" +
-            "<td><b>Key</b></td><td style='padding-left:20px'><b>Data structure</b></td></tr>" +
+            "<td ><b>Key</b></td><td style='padding-left:20px'><b>Data structure</b></td></tr>" +
             "<tr style='border-bottom: 1px solid darkgray;'><td style='vertical-align:top'><b>trees</b></td>" +
             "<td style='padding-left:20px; text-align:justify; vertical-align:top'>" +
                 "Dictionary where the key is the sample id and the value is another dictionary containing the tree structure (required) " + 
@@ -163,7 +162,7 @@ $('#drop-down-cohort').change(function(){
                 "<p style='margin:6px;'></p>" +
                 "</td></tr>" +
           "</table>" +
-        "</td><td style='padding-left:100px; width=300px'><b>Load JSON file:</b><p style='margin:6px;'></p><input type=file id='picker' onchange='load()'<br/><br/><br/>" +
+        "</td><td style='padding-left:50px; min-width:300px'><b>Load JSON file:</b><p style='margin:6px;'></p><input type=file id='picker' onchange='load()'<br/><br/><br/>" +
         "<i> <font color=gray>The data is processed on the fly on the client's side and remains confidential.</font></i></td></tr></table><br/><br/>" +
         "</div>"
   } else {
