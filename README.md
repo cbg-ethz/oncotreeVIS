@@ -5,16 +5,12 @@
 [![bioRxiv](https://img.shields.io/badge/BioRxiv-10.1101/2024.11.15.623847-blue.svg)](https://www.biorxiv.org/content/10.1101/2024.11.15.623847v1)
 [![License](https://img.shields.io/badge/license-MIT-red)](https://mit-license.org/)
 
-# oncotreeVIS – An interactive graphical user interface for visualising mutation tree cohorts
-
-
-<br/>
-
 ### Web app: <a href=https://cbg-ethz.github.io/oncotreeVIS target=app>https://cbg-ethz.github.io/oncotreeVIS</a>
 ----------
 
+# oncotreeVIS – An interactive graphical user interface for visualising mutation tree cohorts
+
 ### Abstract
-----------
 
 <p align="justify">In recent years, developments in next-generation sequencing technology and computational methodology have made it possible to reconstruct, with increasing precision, the evolutionary history of tumors and their cell phylogenies, represented as mutation trees. Many mutation tree inference tools exist, yet they only provide visualizations of individual output trees, with limited amount of details, which makes it difficult to inspect the mutation trees at the cohort level and understand their differences and commonalities, an important task in computational oncology highly relevant for tumor board clinical decisions.</p>
 
