@@ -976,7 +976,7 @@ function addInfoBoxToElement(elem, text, bg_color="#0868d2", width=250, margin_l
   span.style.backgroundColor = bg_color
   span.style.width = width + "px"
   span.style.lineHeight = line_height
-  if (position == "top") {
+  if (position == "top" || position == "bottom") {
     if (margin_left=="") {
       span.style.marginLeft = "-" + width/2 + "px"
     } else {
@@ -1026,11 +1026,15 @@ function createExpandBox(div_id, reverse=false) {
     if (show_div) {
       div.style.display = 'block'
       button.innerHTML = button.innerHTML.replace("down", "up")
+      info_text = "&nbsp;&nbsp;Click to hide."
     } else {
       div.style.display = 'none'
       button.innerHTML = button.innerHTML.replace("up", "down")
+      info_text = "Click to expand."
     }
     button.show_div = !show_div
+    addInfoBoxToElement(button, info_text,
+          bg_color="#353935", width=95, margin_left="", position="top", line_height="17px")
   })
   button_expand.div_id = div_id
   button_expand.button_id = button_id
@@ -1166,7 +1170,7 @@ function showTreeInfo(sample_name, args) {
 
   // Displayed metadata.
   if (metadata && mapSize(metadata)) {
-    var header_metadata = createInfoHeader("<b>Clinical data</b>")
+    var header_metadata = createInfoHeader("<b>Metadata</b>")
     header_metadata.style.direction = "ltr"
     tree_info_div.appendChild(header_metadata)
 
@@ -1201,10 +1205,6 @@ function showTreeInfo(sample_name, args) {
   // kNN matching trees.
   var header_knn = createInfoHeader("<b>K-nearest tree neighbors</b>")
   header_knn.style.direction = "ltr"
-  var info_icon = createInfoTooltip("fa fa-question-circle")
-  info_text = "K-nearest matching trees to the selected tree based on the provided <i>matching_labels</i>, computed using a greedy approximation algorithm for the maximum matching problem with ordering constraints."
-  addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=170, margin_left="", position="left", line_height="20px")
-  header_knn.appendChild(info_icon)
   tree_info_div.appendChild(header_knn)
 
   var knn_box_id = "knn"
@@ -1228,6 +1228,11 @@ function showTreeInfo(sample_name, args) {
         "is too large.</i><br/>"
   }
   header_knn.appendChild(createExpandBox(knn_box_id))
+  var info_icon = createInfoTooltip("fa fa-question-circle")
+  info_text = "K-nearest matching trees to the selected tree based on the provided <i>matching_labels</i>, " + 
+      "computed using a greedy approximation algorithm for the maximum matching problem with ordering constraints."
+  addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=177, margin_left="", position="top", line_height="20px")
+  header_knn.appendChild(info_icon)
   appendLineBreak(tree_info_div)
 
   // Add event listeners after the DOM is complete. 
@@ -1676,7 +1681,7 @@ function showClusterInfo_slow(args) {
     var header_genes = createInfoHeader("<b>Matching details</b>", color_motif=background_color)
     header_genes.style.direction = "ltr"
     tree_info_div.appendChild(header_genes)
-    
+
     var genes_box_id = "cluster_genes"
     var genes_box_div = createDivContainer(genes_box_id)
     genes_box_div.style.direction = "ltr"
@@ -1685,20 +1690,7 @@ function showClusterInfo_slow(args) {
     // Add text.
     appendLineBreak(genes_box_div)
     for (let [color, events] of matching_nodes_details.entries()) {
-      affected_chromosomes = new Set()
-      for (let [event, gene_set] of events.entries()) {
-        for (let gene of Array.from(gene_set)) {
-          if (gene in gene_chr_map) {
-            affected_chromosomes.add(gene_chr_map[gene])
-          }
-        }
-      }
-      /*if (affected_chromosomes.size) {
-        genes_box_div.innerHTML += "<b>Affected chromosomes:<br/></b>"
-        genes_box_div.append(createChromosomeTable(Array.from(affected_chromosomes)))
-        appendLineBreak(genes_box_div)
-      }*/
-
+      // Matching genes.
       genes_box_div.innerHTML += '<i class="fa fa-circle" style="font-size:18px;color:' + color + '"></i> &nbsp;'
       for (let [event, gene_set] of events.entries()) {
         genes = Array.from(gene_set).sort()
@@ -1710,10 +1702,32 @@ function showClusterInfo_slow(args) {
         genes_box_div.innerHTML += "; "
       }
       appendHalfLineBreak(genes_box_div)
+
+      // Affected chromosomes.
+      affected_chromosomes = new Set()
+      for (let [event, gene_set] of events.entries()) {
+        for (let gene of Array.from(gene_set)) {
+          if (gene in gene_chr_map) {
+            affected_chromosomes.add(gene_chr_map[gene])
+          }
+        }
+      }
+      if (affected_chromosomes.size) {
+        genes_box_div.innerHTML += "<i><font size=1> Affected chromosomes:</font></i>"
+        appendHalfLineBreak(genes_box_div)
+        genes_box_div.append(createChromosomeTable(Array.from(affected_chromosomes)))
+        genes_box_div.innerHTML += "<hr>"
+        appendLineBreak(genes_box_div)
+      }
     }
 
     tree_info_div.appendChild(genes_box_div)
     header_genes.appendChild(createExpandBox(genes_box_id))
+    var info_icon = createInfoTooltip("fa fa-question-circle")
+    info_text = "List of gene mutations shared between matching subclones. " +
+        "The matching subclones are indicated by the corresponding node color."
+    addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=170, margin_left="", position="bottom", line_height="20px")
+    header_genes.appendChild(info_icon)
     appendLineBreak(tree_info_div)
   }
 
@@ -1738,11 +1752,14 @@ function showClusterInfo_slow(args) {
   metadata_table.style.display = "inline-table"
   meta_box_div.appendChild(metadata_table)
   appendLineBreak(meta_box_div)
-  appendLineBreak(meta_box_div)
 
-  header_meta.appendChild(createExpandBox(meta_box_id, reverse=true))
   tree_info_div.appendChild(meta_box_div)
-  appendLineBreak(tree_info_div)
+  header_meta.appendChild(createExpandBox(meta_box_id, reverse=true))
+  var info_icon = createInfoTooltip("fa fa-question-circle")
+  info_text = "Summary of the clinical data and the corresponding color legend for the samples in the selected cluster." 
+  addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=170, margin_left="", position="bottom", line_height="20px")
+  header_meta.appendChild(info_icon)
+
   appendLineBreak(tree_info_div)
 }
 
@@ -1814,8 +1831,11 @@ function createChromosomeTable(affected_chromosomes) {
   table.appendChild(tr)
   for (chr of chr_list) {
     var td = document.createElement('TD')
-    td.style.border = "1px solid darkgray"
-    td.fontWeight = "bold"
+    td.style.border = "1px solid lightgray"
+    //td.fontWeight = "bold"
+    td.style.fontSize = "11px"
+    td.style.paddingRight = "2px"
+    td.style.paddingLeft = "2px"
     td.appendChild(document.createTextNode(chr))
     if (affected_chromosomes.includes(chr)) {
       td.style.backgroundColor = "tomato"
