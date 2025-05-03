@@ -383,7 +383,7 @@ function addHTMLElements(container_div_id, args) {
   var button_zoomReset = createActionIcon("fa fa-expand-arrows-alt")
   button_zoomReset.addEventListener('click', (event) => {
     var target_div = document.getElementById(event.currentTarget.target_div_id)
-    target_div.style.zoom = 1
+    target_div.style.zoom = DEFAULT_ZOOM
   })
   button_zoomReset.target_div_id = tree_cohort_div_id
   outer_div.appendChild(button_zoomReset)
@@ -487,23 +487,26 @@ function addHTMLElements(container_div_id, args) {
   div_container.appendChild(outer_div)
 
   var outer_div = document.createElement('div')
+  var width_outer_div = outer_div.clientWidth
   // Tree cohort div.
   tree_cohort_div = createDivContainer(tree_cohort_div_id)
   tree_cohort_div.style.zoom = 1
   tree_cohort_div.style.float = "left"
   tree_cohort_div.style.position = "relative"
-  tree_cohort_div.style.width = "73%"
-  tree_cohort_div.style.padding = "3px"     
+  tree_cohort_div.style.padding = "3px"    
+  tree_cohort_div.style.paddingTop = "10px" 
   outer_div.appendChild(tree_cohort_div)
+
   // Tree info div.
   var tree_info_div_id = args.tree_info_div_id
   tree_info_div = createDivContainer(tree_info_div_id)
+  //tree_info_div.style.border = "1px solid darkgray"
   tree_info_div.style.borderRadius = "8px"
   tree_info_div.style.fontSize = "13px"
   tree_info_div.style.position = "fixed"
   tree_info_div.style.width = "max(24%, 300px)" 
-  //tree_info_div.style.maxWidth = "430px"
-  //tree_info_div.style.minWidth = "300px"
+  tree_info_div.style.marginTop = "10px"
+
   tree_info_div.style.padding = "15px"
   tree_info_div.style.float = "right"
   //tree_info_div.style.left = "calc(73% + 2px)"
@@ -520,13 +523,20 @@ function addHTMLElements(container_div_id, args) {
   var div_tree_cohort_top_offset = tree_cohort_div.getBoundingClientRect().top
   tree_info_div.style.top = div_tree_cohort_top_offset + "px"
 
-  // TODO: start with a lower zoom.
-  /* window_width = document.getElementById(tree_cohort_div_id).clientWidth - 6
-  window_height = window.innerHeight - document.getElementById(tree_cohort_div_id).offsetTop
-  total_num_trees = args.data.clusters.flat().length
-  tree_cohort_div.style.zoom = Math.sqrt(Math.round(window_width / TREE_CANVAS_WIDTH) *
-      Math.round(window_height / TREE_CANVAS_HEIGHT) / total_num_trees)
-  */
+  tree_cohort_div_width = window.innerWidth - tree_info_div.clientWidth - 30
+  tree_cohort_div_percent = tree_cohort_div_width * 100 / window.innerWidth
+  tree_cohort_div.style.width = tree_cohort_div_percent.toString() + "%"
+
+  // Adjust initial zoom.
+  canvas_width = tree_cohort_div.clientWidth - 6
+  remaining_margin_right = canvas_width % (TREE_CANVAS_WIDTH + 40)
+  if (remaining_margin_right > 30) {
+    num_tree_on_row = Math.floor(canvas_width / (TREE_CANVAS_WIDTH + 2 * TREE_CANVAS_PADDING))
+    // Make it fit one more tree.
+    new_tree_canvas_size = Math.floor(canvas_width / (num_tree_on_row + 1))
+    DEFAULT_ZOOM = new_tree_canvas_size / (TREE_CANVAS_WIDTH + 2 * TREE_CANVAS_PADDING) - 0.01
+    tree_cohort_div.style.zoom = DEFAULT_ZOOM
+  }
 }
 
 ///////////////////
@@ -1194,7 +1204,7 @@ function showTreeInfo(sample_name, args) {
     if (sample_matches.length) {
       sample_matches.sort((key_1, key_2) => knn[key_2]["similarity"] - knn[key_1]["similarity"])
       for(let key of sample_matches) {
-        async_display_tree_matching(knn_box_id, knn[key])
+        async_displayTreeMatching(knn_box_id, knn[key])
       }
     } else {
       knn_box_div.innerHTML = "<i>No matching trees found.</i>"
@@ -1648,7 +1658,25 @@ function showClusterInfo_slow(args) {
   div_matches = createDivContainer("cluster_matches")
   div_matches.style.direction = "ltr"
   if (matching_nodes_details.size) {
-    div_matches.innerHTML = "<strong style='background-color:" + bg_color + "; display:block;'>&nbsp;Genes in matching nodes<br/></strong>"
+
+    // TODO asta am adaugat
+    var header_genes = createInfoHeader("<b>Genes in matching nodes</b>")
+    header_genes.style.direction = "ltr"
+    div_matches.appendChild(header_genes)
+    
+    var genes_box_id = "cluster_genes"
+    var genes_box_div = createDivContainer(genes_box_id)
+    genes_box_div.style.direction = "ltr"
+    genes_box_div.style.display = 'none'
+    genes_box_div.innerHTML = "Textul meu"
+    div_matches.appendChild(genes_box_div)
+    div_matches.appendChild(createExpandBox(genes_box_id))
+    appendLineBreak(div_matches)
+
+    // end TODO
+
+    div_matches.innerHTML = "<strong style='background-color:" + bg_color + 
+        "; display:block;'>&nbsp;Genes in matching nodes<br/></strong>"
     appendLineBreak(div_matches)
   }
 
@@ -2070,6 +2098,25 @@ function populateHeatmapView_slow(args) {
           args_cluster["table_color_codes"] = cluster_starts[d.sample_1]["table_color_codes"];
           showClusterInfo(args_cluster)
       }) 
+      .on('mousemove', function(d) {
+        tooltip
+          .html("&nbsp;Click to show cluster details.")
+          .style("left", (d3.mouse(this)[0]) + "px")
+          .style("top", (d3.mouse(this)[1]) + "px")
+          .style("visibility", "visible")
+          .style("display", "block")
+          .style("position", "absolute")
+          .style("z-index" ,10)
+          .style("font-size", "10px")
+      })
+      .on('mouseover', function(d) {
+        tooltip.style("opacity", 1)
+      })
+      .on('mouseleave', function() {
+        tooltip.style("opacity", 0)
+          .style("visibility", "hidden")
+          .style("display", "none")
+      })
 
   // Add rectangle for all the samples.
   num_samples = sample_list.length
@@ -2100,10 +2147,10 @@ function populateHeatmapView_slow(args) {
       .style("fill", "none")
       .style("stroke", function(d) { //"#0b559f"
         if (d.sample_1 == clusters[0][0]){
-          return "LightGreen"
+          return "LightGray"
         }
       })
-      .style("stroke-width", "3")
+      .style("stroke-width", "5")
       .style("cursor", "pointer")
       .on("click", function(d){
           args_cluster = {}
@@ -2114,6 +2161,25 @@ function populateHeatmapView_slow(args) {
           args_cluster["cluster_metadata"] = trees[clusters[0][0]]["cohort_metadata"]
           args_cluster["table_color_codes"] = trees[clusters[0][0]]["cohort_table_color_codes"];
           showClusterInfo(args_cluster)
+      })
+      .on('mousemove', function(d) {
+        tooltip
+          .html("<div align=center>Click to show metadata<br/>for all the samples.</font>")
+          .style("left", (d3.mouse(this)[0]) + "px")
+          .style("top", (d3.mouse(this)[1]) + "px")
+          .style("visibility", "visible")
+          .style("display", "block")
+          .style("position", "absolute")
+          .style("z-index" ,10)
+          .style("font-size", "10px")
+      })
+      .on('mouseover', function(d) {
+        tooltip.style("opacity", 1)
+      })
+      .on('mouseleave', function() {
+        tooltip.style("opacity", 0)
+          .style("visibility", "hidden")
+          .style("display", "none")
       })
 
   // Color legend
@@ -2407,7 +2473,9 @@ function get_node_color(node, target_gene) {
 
 ////////// Display tree ///////////
 var TREE_CANVAS_WIDTH = 200
+var TREE_CANVAS_PADDING = 20
 var TREE_CANVAS_HEIGHT = 400
+var DEFAULT_ZOOM = 1
 function displayTree(div_id, tree_label, tree_data, target_gene, 
     target_drug, drug_gene_map, tree_info_view=true, 
     width=TREE_CANVAS_WIDTH, height=TREE_CANVAS_HEIGHT) {
