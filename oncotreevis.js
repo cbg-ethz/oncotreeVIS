@@ -994,8 +994,7 @@ function createInfoTooltip() {
 ////////////////////////////
 //// Populate tree info ////
 ////////////////////////////
-function createInfoHeader(html_text){
-  var color_motif = "#d2cae6"
+function createInfoHeader(html_text, color_motif="#d2cae6"){
   div_container = document.createElement('div')
   div_container.style.backgroundColor = color_motif
   div_container.innerHTML = "&nbsp;" + html_text
@@ -1005,7 +1004,9 @@ function createInfoHeader(html_text){
 function createExpandBox(div_id, reverse=false) {
   var button_class = "fa-caret-down"
   var show_div = true
+  console.log(reverse)
   if(reverse) {
+    console.log("reverse")
     button_class = "fa-caret-up"
     show_div = false
   }
@@ -1189,7 +1190,7 @@ function showTreeInfo(sample_name, args) {
   header_knn.style.direction = "ltr"
   var info_icon = createInfoTooltip("fa fa-question-circle")
   info_text = "K-nearest matching trees to the selected tree based on the provided <i>matching_labels</i>, computed using a greedy approximation algorithm for the maximum matching problem with ordering constraints."
-  addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=150, margin_left="", position="left", line_height="20px")
+  addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=170, margin_left="", position="left", line_height="20px")
   header_knn.appendChild(info_icon)
   tree_info_div.appendChild(header_knn)
 
@@ -1655,76 +1656,78 @@ function showClusterInfo_slow(args) {
   }
 
   bg_color = tinycolor(cluster_bg_color).darken(30).desaturate(40).toHexString()
-  div_matches = createDivContainer("cluster_matches")
-  div_matches.style.direction = "ltr"
-  if (matching_nodes_details.size) {
 
-    // TODO asta am adaugat
-    var header_genes = createInfoHeader("<b>Genes in matching nodes</b>")
+  // Matching details.
+  if (matching_nodes_details.size) {
+    var header_genes = createInfoHeader("<b>Matching details</b>", color_motif=bg_color)
     header_genes.style.direction = "ltr"
-    div_matches.appendChild(header_genes)
+    tree_info_div.appendChild(header_genes)
     
     var genes_box_id = "cluster_genes"
     var genes_box_div = createDivContainer(genes_box_id)
     genes_box_div.style.direction = "ltr"
     genes_box_div.style.display = 'none'
-    genes_box_div.innerHTML = "Textul meu"
-    div_matches.appendChild(genes_box_div)
-    div_matches.appendChild(createExpandBox(genes_box_id))
-    appendLineBreak(div_matches)
 
-    // end TODO
-
-    div_matches.innerHTML = "<strong style='background-color:" + bg_color + 
-        "; display:block;'>&nbsp;Genes in matching nodes<br/></strong>"
-    appendLineBreak(div_matches)
-  }
-
-  for (let [color, events] of matching_nodes_details.entries()) {
-    affected_chromosomes = new Set()
-    for (let [event, gene_set] of events.entries()) {
-      for (let gene of Array.from(gene_set)) {
-        if (gene in gene_chr_map) {
-          affected_chromosomes.add(gene_chr_map[gene])
+    // Add text.
+    appendLineBreak(genes_box_div)
+    for (let [color, events] of matching_nodes_details.entries()) {
+      affected_chromosomes = new Set()
+      for (let [event, gene_set] of events.entries()) {
+        for (let gene of Array.from(gene_set)) {
+          if (gene in gene_chr_map) {
+            affected_chromosomes.add(gene_chr_map[gene])
+          }
         }
       }
-    }
-    if (affected_chromosomes.size) {
-      div_matches.innerHTML += "<b>Affected chromosomes:<br/></b>"
-      div_matches.append(createChromosomeTable(Array.from(affected_chromosomes)))
-      appendLineBreak(div_matches)
-    }
+      /*if (affected_chromosomes.size) {
+        genes_box_div.innerHTML += "<b>Affected chromosomes:<br/></b>"
+        genes_box_div.append(createChromosomeTable(Array.from(affected_chromosomes)))
+        appendLineBreak(genes_box_div)
+      }*/
 
-    div_matches.innerHTML += '<i class="fa fa-circle" style="font-size:18px;color:' + color + '"></i> &nbsp;'
-    for (let [event, gene_set] of events.entries()) {
-      genes = Array.from(gene_set).sort()
-      genes = genes.filter(e => !e.includes('.'))
-      div_matches.innerHTML += event + ": " + applyTextStyle(genes[0], highlighted_genes)
-      for (var gene of genes.slice(1,genes.length+1)) {
-        div_matches.innerHTML += ", " + applyTextStyle(gene, highlighted_genes)
+      genes_box_div.innerHTML += '<i class="fa fa-circle" style="font-size:18px;color:' + color + '"></i> &nbsp;'
+      for (let [event, gene_set] of events.entries()) {
+        genes = Array.from(gene_set).sort()
+        genes = genes.filter(e => !e.includes('.'))
+        genes_box_div.innerHTML += event + ": " + applyTextStyle(genes[0], highlighted_genes)
+        for (var gene of genes.slice(1,genes.length+1)) {
+          genes_box_div.innerHTML += ", " + applyTextStyle(gene, highlighted_genes)
+        }
+        genes_box_div.innerHTML += "; "
       }
-      div_matches.innerHTML += "; "
+      appendHalfLineBreak(genes_box_div)
     }
-    appendHalfLineBreak(div_matches)
-  }
-  appendLineBreak(div_matches)
-  tree_info_div.appendChild(div_matches)
 
-  div_meta = createDivContainer("cluster_meta")
-  div_meta.style.direction = "ltr"
-  div_meta.innerHTML += "<strong style='background-color:" + bg_color + "; display:block;'>&nbsp;Cluster metadata<br/></strong>"
+    tree_info_div.appendChild(genes_box_div)
+    header_genes.appendChild(createExpandBox(genes_box_id))
+    appendLineBreak(tree_info_div)
+  }
+
+  // Metadata.
+  var header_meta = createInfoHeader("<b>Cluster metadata</b>", color_motif=bg_color)
+  header_meta.style.direction = "ltr"
+  tree_info_div.appendChild(header_meta)
+
+  var meta_box_id = "cluster_meta"
+  var meta_box_div = createDivContainer(meta_box_id)
+  meta_box_div.style.direction = "ltr"
+  //meta_box_div.style.display = 'none'
+
   div_table_1 = createDivContainer("table_1")
   div_table_1.style.display = "inline-block"
   div_table_1.appendChild(table_color_codes)
-  div_meta.appendChild(div_table_1)
-  div_meta.innerHTML += "<br/>"
-  appendLineBreak(div_meta)
+  meta_box_div.appendChild(div_table_1)
+  appendLineBreak(meta_box_div)
+  appendLineBreak(meta_box_div)
+
   var metadata_table = getMetadataTable(cluster_metadata)
   metadata_table.style.display = "inline-table"
-  div_meta.appendChild(metadata_table)
-  appendLineBreak(div_meta)
-  appendLineBreak(div_meta)
-  tree_info_div.appendChild(div_meta)
+  meta_box_div.appendChild(metadata_table)
+  appendLineBreak(meta_box_div)
+  appendLineBreak(meta_box_div)
+
+  header_meta.appendChild(createExpandBox(meta_box_id, reverse=true))
+  tree_info_div.appendChild(meta_box_div)
   appendLineBreak(tree_info_div)
   appendLineBreak(tree_info_div)
 }
