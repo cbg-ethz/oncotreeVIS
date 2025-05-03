@@ -143,6 +143,7 @@ body.wait, body.wait *{
   bottom: 150%;
   left: 50%;
   //margin-left: -120px;
+  margin-bottom: -5px;
   cursor: "pointer";
 }
 

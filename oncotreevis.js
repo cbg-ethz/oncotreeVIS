@@ -943,8 +943,15 @@ function populateGeneStates(tree){
 //////////////////////
 //// HTML helpers ////
 //////////////////////
-function appendLineBreak(div) {
+function appendLineBreak(div, num=1) {
   div.appendChild(document.createElement("p"))
+  if (num > 1) {
+    var br_div = document.createElement("div")
+    br_div.innerHTML = "<br/>"
+    for (let i= 1; i<num; i++) {
+      div.appendChild(br_div)
+    }
+  }
 }
 
 function appendHalfLineBreak(div) {
@@ -1004,9 +1011,7 @@ function createInfoHeader(html_text, color_motif="#d2cae6"){
 function createExpandBox(div_id, reverse=false) {
   var button_class = "fa-caret-down"
   var show_div = true
-  console.log(reverse)
   if(reverse) {
-    console.log("reverse")
     button_class = "fa-caret-up"
     show_div = false
   }
@@ -1030,6 +1035,13 @@ function createExpandBox(div_id, reverse=false) {
   button_expand.div_id = div_id
   button_expand.button_id = button_id
   button_expand.show_div = show_div
+
+  info_text = "Click to expand."
+  if(reverse) {
+    info_text = "&nbsp;&nbsp;Click to hide."
+  }
+  addInfoBoxToElement(button_expand, info_text,
+        bg_color="#353935", width=95, margin_left="", position="top", line_height="17px")
 
   return button_expand
 }
@@ -1097,7 +1109,8 @@ function showTreeInfo(sample_name, args) {
     var info_icon = createInfoTooltip("fa fa-question-circle")
     info_text = "Subclones affected by <b>selected target gene</b> are highlighted with colors in the mutation tree below: " +
       "<b><font color=tomato>red</font></b>  for CN amplification, <b><font color=lightsteelblue>blue</font></b> for CN deletion " +
-      "and <b><font color=#b4a7d6>violet</font></b> for any other mutation event. An event in one subclone of the tree affects all the subsequent nodes in the child subtree." 
+      "and <b><font color=#b4a7d6>violet</font></b> for any other mutation event. An event in one subclone of the tree " +
+      "affects all the subsequent nodes in the child subtree." 
     addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=200, margin_left="", position="left", line_height="17px")
     div_container.appendChild(info_icon)
 
@@ -1655,11 +1668,12 @@ function showClusterInfo_slow(args) {
     return; 
   }
 
-  bg_color = tinycolor(cluster_bg_color).darken(30).desaturate(40).toHexString()
+  background_color = tinycolor(cluster_bg_color).darken(30).desaturate(40).toHexString()
 
   // Matching details.
   if (matching_nodes_details.size) {
-    var header_genes = createInfoHeader("<b>Matching details</b>", color_motif=bg_color)
+    appendLineBreak(tree_info_div)
+    var header_genes = createInfoHeader("<b>Matching details</b>", color_motif=background_color)
     header_genes.style.direction = "ltr"
     tree_info_div.appendChild(header_genes)
     
@@ -1704,7 +1718,7 @@ function showClusterInfo_slow(args) {
   }
 
   // Metadata.
-  var header_meta = createInfoHeader("<b>Cluster metadata</b>", color_motif=bg_color)
+  var header_meta = createInfoHeader("<b>Cluster metadata</b>", color_motif=background_color)
   header_meta.style.direction = "ltr"
   tree_info_div.appendChild(header_meta)
 
