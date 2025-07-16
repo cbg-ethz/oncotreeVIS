@@ -207,6 +207,8 @@ function oncotreeVIS_slow(args) {
         }
       }
       [sample_metadata_colors, metadata_color_map] = getMetadataColorMap(sample_metadata_map)
+      console.log("sample_metadata_colors", sample_metadata_colors)
+      console.log("metadata_color_map", metadata_color_map)
       table_color_codes = getColorCodesTable(metadata_color_map)
       trees[cluster[0]]["sample_metadata_colors"] = sample_metadata_colors
       trees[cluster[0]]["table_color_codes"] = table_color_codes
@@ -394,10 +396,10 @@ function addHTMLElements(container_div_id, args) {
   tree_view_button.className = "button-15"
   tree_view_button.addEventListener('click', ()=>{ populateTreeView(args); })
   tree_view_button.innerHTML = '<i class="fa fa-tree" style="font-size:19px"></i>&nbsp;TREE VIEW'
-  addInfoBoxToElement(tree_view_button, "Show mutation trees side by side, grouped by a given clustering (by default). " + 
-      "Nodes correspond to clones of different sizes. Each node is labeled with the " +
-      "set of provided gene mutations (SNVs, CNAs, etc) acquired by the subclone (also displayed on the incoming edges). "+
-      "Matching subclones and conserved edges are highlighted. Neutral clones (if specified) are colored in " +
+  addInfoBoxToElement(tree_view_button, "Show mutation trees side by side, grouped by a given clustering (if provided). " + 
+      "Nodes correspond to subclones of different sizes. Each node is labeled with the provided" +
+      "set of gene mutations (SNVs, CNAs, etc) acquired by the subclone - labels are also displayed on the incoming edges. "+
+      "Matching subclones and conserved edges are highlighted. Neutral clones (if labeled) are colored in " +
       "<font color=lightyellow><b>lightyellow</b></font>.", bg_color="#0868d2", width=365, margin_left=135, position="top", line_height="13px")
   tree_view_div.appendChild(tree_view_button)
 
