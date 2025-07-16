@@ -646,7 +646,7 @@ function populateTreeView_slow(args){
         click_cluster_details_div.style.cursor = "pointer"
         var text_color = tinycolor(cluster_color).darken(30).desaturate(40).toHexString()
         click_cluster_details_div.innerHTML = '&nbsp;<b><i class="fa fa-desktop fa-sm" style="color:' + text_color +
-          '"></i> <i><font color="' + text_color  + '"> &thinsp; show cluster details </i></b>'
+          '"></i> <i><font color="' + text_color  + '"> &thinsp; show details of cluster ' + i + ' </i></b>'
 
         args_cluster = {}
         args_cluster["matching_nodes_details"] = trees[cluster[0]]["matching_nodes_cluster_details"]
@@ -2083,8 +2083,9 @@ function populateHeatmapView_slow(args) {
     })
 
   cluster_starts = {}
-  for (var cluster of clusters) {
+  clusters.forEach(function (cluster, idx) {
     cluster_starts[cluster[0]] = {
+        "cluster_idx": idx,
         "size": cluster.length, 
         "color": data["trees"][cluster[0]]["2d_color"],
         "cluster_bg_color": data["trees"][cluster[0]]["cluster_color"],
@@ -2092,7 +2093,7 @@ function populateHeatmapView_slow(args) {
         "table_color_codes": trees[cluster[0]]["table_color_codes"],
         "matching_nodes_cluster_details": trees[cluster[0]]["matching_nodes_cluster_details"]
     }
-  }
+  })
 
   // Add cluster rectangles.
   svg.selectAll()
@@ -2139,7 +2140,7 @@ function populateHeatmapView_slow(args) {
       }) 
       .on('mousemove', function(d) {
         tooltip
-          .html("&nbsp;Click to show cluster details.")
+          .html("&nbsp;Click to show details of cluster " + cluster_starts[d.sample_1]["cluster_idx"] + ".")
           .style("left", (d3.mouse(this)[0]) + "px")
           .style("top", (d3.mouse(this)[1]) + "px")
           .style("visibility", "visible")
