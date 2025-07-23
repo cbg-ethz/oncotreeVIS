@@ -103,6 +103,7 @@ function oncotreeVIS_slow(args) {
 
   // Colors at cluster level.
   used_colors = {}
+  metadata_color_map = {}
   cluster_color_generator = new ColorGenerator(background_colors, shuffle=false, transparent_flavour=0.7)
   cluster_node_color_generator = new ColorGenerator(node_colors, shuffle=true, transparent_flavour=0.3)
   for (const [i, cluster] of clusters.entries()) {
@@ -206,9 +207,7 @@ function oncotreeVIS_slow(args) {
           sample_metadata_map[sample_name] = sample_metadata
         }
       }
-      [sample_metadata_colors, metadata_color_map] = getMetadataColorMap(sample_metadata_map)
-      console.log("sample_metadata_colors", sample_metadata_colors)
-      console.log("metadata_color_map", metadata_color_map)
+      [sample_metadata_colors, metadata_color_map] = getMetadataColorMap(sample_metadata_map, metadata_color_map)
       table_color_codes = getColorCodesTable(metadata_color_map)
       trees[cluster[0]]["sample_metadata_colors"] = sample_metadata_colors
       trees[cluster[0]]["table_color_codes"] = table_color_codes
@@ -228,7 +227,7 @@ function oncotreeVIS_slow(args) {
       sample_metadata_map[sample_name] = sample_metadata
     }
   }
-  [sample_metadata_colors, metadata_color_map] = getMetadataColorMap(sample_metadata_map)
+  [sample_metadata_colors, metadata_color_map] = getMetadataColorMap(sample_metadata_map, metadata_color_map)
   table_color_codes = getColorCodesTable(metadata_color_map)
   trees[clusters[0][0]]["cohort_metadata"] = sample_metadata_colors
   trees[clusters[0][0]]["cohort_table_color_codes"] = table_color_codes
@@ -357,11 +356,37 @@ function createActionIcon(icon_class, id=null) {
   return button
 }
 
+function downloadDiv_slow(args) {
+  element = args.element
+  html2pdf()
+    .set({
+      margin: 0.5,
+      filename: 'figure.pdf',
+      image: { type: 'pdf', quality: 1},
+      html2canvas: { scale: 4 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    })
+    .from(element)
+    .save();
+}
+
 function addHTMLElements(container_div_id, args) {
   var div_container = document.getElementById(container_div_id)
   div_container.innerHTML = ""
   var tree_cohort_div_id = args.tree_cohort_div_id
   var outer_div = document.createElement('div')
+
+  // Button download.
+  var button_dwl = createActionIcon("fa fa-download")
+  button_dwl.addEventListener('click', (event) => {
+    var target_div = document.getElementById(event.currentTarget.target_div_id)
+    var args = {
+      "element": target_div
+    }
+    async_func(args, downloadDiv_slow)
+  })
+  button_dwl.target_div_id = tree_cohort_div_id
+  outer_div.appendChild(button_dwl)  
 
   // Button zoom in.
   var button_zoomIn = createActionIcon("fa fa-search-plus")
@@ -1803,8 +1828,8 @@ class ColorGenerator {
   }
 }
 
-function getMetadataColorMap(sample_metadata_map) {
-  metadata_color_map = {}
+function getMetadataColorMap(sample_metadata_map, existing_metadata_color_map) {
+  metadata_color_map = deepCopy(existing_metadata_color_map)
   for (const [sample, metadata] of Object.entries(sample_metadata_map)) {
     for (const [key, value] of Object.entries(metadata)) {
       if (!(key in metadata_color_map)) {
@@ -2095,6 +2120,72 @@ function populateHeatmapView_slow(args) {
     }
   })
 
+
+  // Add rectangle for all the samples.
+  num_samples = sample_list.length
+  svg.selectAll()
+    .data(distances)
+    .enter()
+    .append("rect")
+      .attr("x", function(d) {
+        if (d.sample_1 == clusters[0][0]  && d.sample_1 == d.sample_2) {
+          return x(d.sample_1)
+        }
+      })
+      .attr("y", function(d) {
+        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) {
+          return y(d.sample_1)
+        }
+      })
+      .attr("width", function(d) {
+        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) {
+          return  num_samples * x.bandwidth()
+        }
+      })
+      .attr("height", function(d) {
+        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) {
+          return  num_samples * y.bandwidth()
+        }
+      })
+      .style("fill", "none")
+      .style("stroke", function(d) { //"#0b559f"
+        if (d.sample_1 == clusters[0][0]){
+          return "LightGray"
+        }
+      })
+      .style("stroke-width", "5")
+      .style("cursor", "pointer")
+      .on("click", function(d){
+          args_cluster = {}
+          args_cluster["matching_nodes_details"] = new Map()
+          args_cluster["tree_info_div_id"] = tree_info_div_id
+          args_cluster["highlighted_genes"] = []
+          args_cluster["cluster_bg_color"] = "white"
+          args_cluster["cluster_metadata"] = trees[clusters[0][0]]["cohort_metadata"]
+          args_cluster["table_color_codes"] = trees[clusters[0][0]]["cohort_table_color_codes"]
+          showClusterInfo(args_cluster)
+      })
+      .on('mousemove', function(d) {
+        tooltip
+          .html("<div align=center>Click to show metadata<br/>for all the samples.</font>")
+          .style("left", (d3.mouse(this)[0]) + "px")
+          .style("top", (d3.mouse(this)[1]) + "px")
+          .style("visibility", "visible")
+          .style("display", "block")
+          .style("position", "absolute")
+          .style("z-index" ,10)
+          .style("font-size", "10px")
+      })
+      .on('mouseover', function(d) {
+        tooltip.style("opacity", 1)
+      })
+      .on('mouseleave', function() {
+        tooltip.style("opacity", 0)
+          .style("visibility", "hidden")
+          .style("display", "none")
+      })
+
+
   // Add cluster rectangles.
   svg.selectAll()
     .data(distances)
@@ -2158,69 +2249,6 @@ function populateHeatmapView_slow(args) {
           .style("display", "none")
       })
 
-  // Add rectangle for all the samples.
-  num_samples = sample_list.length
-  svg.selectAll()
-    .data(distances)
-    .enter()
-    .append("rect") 
-      .attr("x", function(d) {
-        if (d.sample_1 == clusters[0][0]  && d.sample_1 == d.sample_2) {
-          return x(d.sample_1)
-        }
-      }) 
-      .attr("y", function(d) {
-        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) {
-          return y(d.sample_1)
-        }
-      })
-      .attr("width", function(d) {
-        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) { 
-          return  num_samples * x.bandwidth()
-        }
-      })
-      .attr("height", function(d) {
-        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) { 
-          return  num_samples * y.bandwidth()
-        }
-      }) 
-      .style("fill", "none")
-      .style("stroke", function(d) { //"#0b559f"
-        if (d.sample_1 == clusters[0][0]){
-          return "LightGray"
-        }
-      })
-      .style("stroke-width", "5")
-      .style("cursor", "pointer")
-      .on("click", function(d){
-          args_cluster = {}
-          args_cluster["matching_nodes_details"] = new Map()
-          args_cluster["tree_info_div_id"] = tree_info_div_id
-          args_cluster["highlighted_genes"] = []
-          args_cluster["cluster_bg_color"] = "white"
-          args_cluster["cluster_metadata"] = trees[clusters[0][0]]["cohort_metadata"]
-          args_cluster["table_color_codes"] = trees[clusters[0][0]]["cohort_table_color_codes"];
-          showClusterInfo(args_cluster)
-      })
-      .on('mousemove', function(d) {
-        tooltip
-          .html("<div align=center>Click to show metadata<br/>for all the samples.</font>")
-          .style("left", (d3.mouse(this)[0]) + "px")
-          .style("top", (d3.mouse(this)[1]) + "px")
-          .style("visibility", "visible")
-          .style("display", "block")
-          .style("position", "absolute")
-          .style("z-index" ,10)
-          .style("font-size", "10px")
-      })
-      .on('mouseover', function(d) {
-        tooltip.style("opacity", 1)
-      })
-      .on('mouseleave', function() {
-        tooltip.style("opacity", 0)
-          .style("visibility", "hidden")
-          .style("display", "none")
-      })
 
   // Color legend
   var grad = svg.append('defs')
@@ -2330,8 +2358,6 @@ function populate2DView_slow(args) {
   outer_div.style.backgroundColor = "white"
   outer_div.style.display = "none"
   outer_div.style.zIndex = 10
-  //tree_div = createDivContainer("tree_div_2d")
-  //outer_div.appendChild(tree_div)
   div_tree_cohort.appendChild(outer_div)
 
   var tree_info_div_id = args.tree_info_div_id
