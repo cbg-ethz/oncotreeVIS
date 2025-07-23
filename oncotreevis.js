@@ -288,7 +288,8 @@ function oncotreeVIS_slow(args) {
     "tree_info_div_id": tree_info_div_id,
     "data": data,
     "sorting": 0,
-    "matching": 0
+    "matching": 0,
+    "rectangle": 0,
   }
   
   // DGIdb data.
@@ -368,6 +369,13 @@ function downloadDiv_slow(args) {
     })
     .from(element)
     .save();
+  /*html2canvas(element).then((canvas) => {
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+    pdf.addImage(imgData, 'PNG', 0, 0);
+    pdf.save('download.pdf');
+  });*/
 }
 
 function addHTMLElements(container_div_id, args) {
