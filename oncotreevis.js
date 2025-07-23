@@ -491,14 +491,44 @@ function addHTMLElements(container_div_id, args) {
    
   // Heatmap view buttons.
   if ("pairwise_tree_distances" in args.data) { 
+    var heatmap_view_div = createBlueBorder()
     var heatmap_view_button = document.createElement('button')
     heatmap_view_button.className = "button-15"
     heatmap_view_button.addEventListener('click', ()=>{ populateHeatmapView(args) })
     heatmap_view_button.innerHTML = '<i style="font-size:19px" class="fa fa-th-large"></i> HEATMAP VIEW'
     addInfoBoxToElement(heatmap_view_button, "Show a heatmap visualization of the given pairwise distances between the mutation trees.",
         bg_color="#0868d2", width=200, margin_left="", position="top", line_height="17px")
+    heatmap_view_div.appendChild(heatmap_view_button)
+
+    // Button remove rectangles.
+    var button_removeRect_id = "remove_rect"
+    var button_removeRect = createActionIcon("fa fa-square-o", button_removeRect_id)
+    addInfoBoxToElement(button_removeRect, "Highlight / Remove clusters.", 
+         bg_color="#0868d2", width=157, margin_left="", position="top", line_height="17px")
+    button_removeRect.addEventListener('click', (event) => {
+      var this_button = document.getElementById(event.currentTarget.id)
+      var state = event.currentTarget.state
+      icon_class_state_0 = "fa fa-square-o"
+      icon_class_state_1 = "fa fa-square"
+      if (state == 0) {
+        this_button.innerHTML = this_button.innerHTML.replace(icon_class_state_0, icon_class_state_1)
+      } else if (state == 1) {
+        this_button.innerHTML = this_button.innerHTML.replace(icon_class_state_1, icon_class_state_0)
+      }
+      var next_state = (state + 1) % 2
+      this_button.state = next_state
+      args = event.currentTarget.args
+      args.rectangle = next_state
+      populateHeatmapView(args)
+    })
+    button_removeRect.id = button_removeRect_id
+    button_removeRect.state = 0 
+    button_removeRect.args = args
+    appendSpace(heatmap_view_div)
+    heatmap_view_div.appendChild(button_removeRect)
+    appendSpace(outer_div)
     appendSpace(outer_div) 
-    outer_div.appendChild(heatmap_view_button)    
+    outer_div.appendChild(heatmap_view_div)    
     div_container.appendChild(outer_div) 
 
     var umap_view_button = document.createElement('button')
@@ -2120,135 +2150,134 @@ function populateHeatmapView_slow(args) {
     }
   })
 
+  if (args.rectangle == 0) {
+    // Add rectangle for all the samples.
+    num_samples = sample_list.length
+    svg.selectAll()
+      .data(distances)
+      .enter()
+      .append("rect")
+        .attr("x", function(d) {
+          if (d.sample_1 == clusters[0][0]  && d.sample_1 == d.sample_2) {
+            return x(d.sample_1)
+          }
+        })
+        .attr("y", function(d) {
+          if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) {
+            return y(d.sample_1)
+          }
+        })
+        .attr("width", function(d) {
+          if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) {
+            return  num_samples * x.bandwidth()
+          }
+        })
+        .attr("height", function(d) {
+          if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) {
+            return  num_samples * y.bandwidth()
+          }
+        })
+        .style("fill", "none")
+        .style("stroke", function(d) { //"#0b559f"
+          if (d.sample_1 == clusters[0][0]){
+            return "LightGray"
+          }
+        })
+        .style("stroke-width", "5")
+        .style("cursor", "pointer")
+        .on("click", function(d){
+            args_cluster = {}
+            args_cluster["matching_nodes_details"] = new Map()
+            args_cluster["tree_info_div_id"] = tree_info_div_id
+            args_cluster["highlighted_genes"] = []
+            args_cluster["cluster_bg_color"] = "white"
+            args_cluster["cluster_metadata"] = trees[clusters[0][0]]["cohort_metadata"]
+            args_cluster["table_color_codes"] = trees[clusters[0][0]]["cohort_table_color_codes"]
+            showClusterInfo(args_cluster)
+        })
+        .on('mousemove', function(d) {
+          tooltip
+            .html("<div align=center>Click to show metadata<br/>for all the samples.</font>")
+            .style("left", (d3.mouse(this)[0]) + "px")
+            .style("top", (d3.mouse(this)[1]) + "px")
+            .style("visibility", "visible")
+            .style("display", "block")
+            .style("position", "absolute")
+            .style("z-index" ,10)
+            .style("font-size", "10px")
+        })
+        .on('mouseover', function(d) {
+          tooltip.style("opacity", 1)
+        })
+        .on('mouseleave', function() {
+          tooltip.style("opacity", 0)
+            .style("visibility", "hidden")
+            .style("display", "none")
+        })
 
-  // Add rectangle for all the samples.
-  num_samples = sample_list.length
-  svg.selectAll()
-    .data(distances)
-    .enter()
-    .append("rect")
-      .attr("x", function(d) {
-        if (d.sample_1 == clusters[0][0]  && d.sample_1 == d.sample_2) {
-          return x(d.sample_1)
-        }
-      })
-      .attr("y", function(d) {
-        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) {
-          return y(d.sample_1)
-        }
-      })
-      .attr("width", function(d) {
-        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) {
-          return  num_samples * x.bandwidth()
-        }
-      })
-      .attr("height", function(d) {
-        if (d.sample_1 == clusters[0][0] && d.sample_1 == d.sample_2) {
-          return  num_samples * y.bandwidth()
-        }
-      })
-      .style("fill", "none")
-      .style("stroke", function(d) { //"#0b559f"
-        if (d.sample_1 == clusters[0][0]){
-          return "LightGray"
-        }
-      })
-      .style("stroke-width", "5")
-      .style("cursor", "pointer")
-      .on("click", function(d){
-          args_cluster = {}
-          args_cluster["matching_nodes_details"] = new Map()
-          args_cluster["tree_info_div_id"] = tree_info_div_id
-          args_cluster["highlighted_genes"] = []
-          args_cluster["cluster_bg_color"] = "white"
-          args_cluster["cluster_metadata"] = trees[clusters[0][0]]["cohort_metadata"]
-          args_cluster["table_color_codes"] = trees[clusters[0][0]]["cohort_table_color_codes"]
-          showClusterInfo(args_cluster)
-      })
-      .on('mousemove', function(d) {
-        tooltip
-          .html("<div align=center>Click to show metadata<br/>for all the samples.</font>")
-          .style("left", (d3.mouse(this)[0]) + "px")
-          .style("top", (d3.mouse(this)[1]) + "px")
-          .style("visibility", "visible")
-          .style("display", "block")
-          .style("position", "absolute")
-          .style("z-index" ,10)
-          .style("font-size", "10px")
-      })
-      .on('mouseover', function(d) {
-        tooltip.style("opacity", 1)
-      })
-      .on('mouseleave', function() {
-        tooltip.style("opacity", 0)
-          .style("visibility", "hidden")
-          .style("display", "none")
-      })
-
-
-  // Add cluster rectangles.
-  svg.selectAll()
-    .data(distances)
-    .enter()
-    .append("rect")
-      .attr("x", function(d) {
-        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1]["size"] > 1) {
-          return x(d.sample_1)
-        }
-      })
-      .attr("y", function(d) {
-        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1]["size"] > 1) {
-          return y(d.sample_1)
-        }
-      })
-      .attr("width", function(d) {
-        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1]["size"] > 1) {
-          return  cluster_starts[d.sample_1]["size"] * x.bandwidth()
-        }
-      })
-      .attr("height", function(d) {
-        if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1]["size"] > 1) {
-          return  cluster_starts[d.sample_1]["size"] * y.bandwidth()
-        }
-      })
-      .style("fill", "none")
-      .style("stroke", function(d) { //"#0b559f"
-        if (d.sample_1 in cluster_starts){
-          return cluster_starts[d.sample_1]["color"]
-        }
-      })
-      .style("stroke-width", "3")
-      .style("cursor", "pointer")
-      .on("click", function(d){
-          args_cluster = {}
-          args_cluster["matching_nodes_details"] = cluster_starts[d.sample_1]["matching_nodes_cluster_details"] 
-          args_cluster["tree_info_div_id"] = tree_info_div_id
-          args_cluster["highlighted_genes"] = data["highlighted_genes"] 
-          args_cluster["cluster_bg_color"] = cluster_starts[d.sample_1]["cluster_bg_color"]
-          args_cluster["cluster_metadata"] = cluster_starts[d.sample_1]["cluster_metadata"]
-          args_cluster["table_color_codes"] = cluster_starts[d.sample_1]["table_color_codes"];
-          showClusterInfo(args_cluster)
-      }) 
-      .on('mousemove', function(d) {
-        tooltip
-          .html("&nbsp;Click to show details of cluster " + cluster_starts[d.sample_1]["cluster_idx"] + ".")
-          .style("left", (d3.mouse(this)[0]) + "px")
-          .style("top", (d3.mouse(this)[1]) + "px")
-          .style("visibility", "visible")
-          .style("display", "block")
-          .style("position", "absolute")
-          .style("z-index" ,10)
-          .style("font-size", "10px")
-      })
-      .on('mouseover', function(d) {
-        tooltip.style("opacity", 1)
-      })
-      .on('mouseleave', function() {
-        tooltip.style("opacity", 0)
-          .style("visibility", "hidden")
-          .style("display", "none")
-      })
-
+    // Add cluster rectangles.
+    svg.selectAll()
+      .data(distances)
+      .enter()
+      .append("rect")
+        .attr("x", function(d) {
+          if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1]["size"] > 1) {
+            return x(d.sample_1)
+          }
+        })
+        .attr("y", function(d) {
+          if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1]["size"] > 1) {
+            return y(d.sample_1)
+          }
+        })
+        .attr("width", function(d) {
+          if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1]["size"] > 1) {
+            return  cluster_starts[d.sample_1]["size"] * x.bandwidth()
+          }
+        })
+        .attr("height", function(d) {
+          if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1]["size"] > 1) {
+            return  cluster_starts[d.sample_1]["size"] * y.bandwidth()
+          }
+        })
+        .style("fill", "none")
+        .style("stroke", function(d) { //"#0b559f"
+          if (d.sample_1 in cluster_starts){
+            return cluster_starts[d.sample_1]["color"]
+          }
+        })
+        .style("stroke-width", "3")
+        .style("cursor", "pointer")
+        .on("click", function(d){
+            args_cluster = {}
+            args_cluster["matching_nodes_details"] = cluster_starts[d.sample_1]["matching_nodes_cluster_details"] 
+            args_cluster["tree_info_div_id"] = tree_info_div_id
+            args_cluster["highlighted_genes"] = data["highlighted_genes"] 
+            args_cluster["cluster_bg_color"] = cluster_starts[d.sample_1]["cluster_bg_color"]
+            args_cluster["cluster_metadata"] = cluster_starts[d.sample_1]["cluster_metadata"]
+            args_cluster["table_color_codes"] = cluster_starts[d.sample_1]["table_color_codes"];
+            showClusterInfo(args_cluster)
+        }) 
+        .on('mousemove', function(d) {
+          tooltip
+            .html("&nbsp;Click to show details of cluster " + cluster_starts[d.sample_1]["cluster_idx"] + ".")
+            .style("left", (d3.mouse(this)[0]) + "px")
+            .style("top", (d3.mouse(this)[1]) + "px")
+            .style("visibility", "visible")
+            .style("display", "block")
+            .style("position", "absolute")
+            .style("z-index" ,10)
+            .style("font-size", "10px")
+        })
+        .on('mouseover', function(d) {
+          tooltip.style("opacity", 1)
+        })
+        .on('mouseleave', function() {
+          tooltip.style("opacity", 0)
+            .style("visibility", "hidden")
+            .style("display", "none")
+        })
+  }
 
   // Color legend
   var grad = svg.append('defs')
