@@ -357,25 +357,44 @@ function createActionIcon(icon_class, id=null) {
   return button
 }
 
-function downloadDiv_slow(args) {
-  element = args.element
+function downloadDiv(original_element) {
+  $("body").addClass("wait")
+
+  const element = original_element.cloneNode(true)
+  document.body.appendChild(element)
+
+  var svgElements = element.getElementsByTagName('svg');
+  Array.from(svgElements).forEach((svg) => {
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const svgBase64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+      
+    // Create a new <img> element
+    const img = document.createElement('img');
+    img.src = svgBase64;
+    img.width = svg.clientWidth;
+    img.height = svg.clientHeight;
+    // Replace <svg> with <img>
+    svg.parentNode.replaceChild(img, svg);
+  });
+
   html2pdf()
     .set({
       margin: 0.5,
       filename: 'figure.pdf',
-      image: { type: 'pdf', quality: 1},
-      html2canvas: { scale: 4 },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      image: {type: 'pdf', quality: 0.7},
+      html2canvas: { 
+          scale: 3, 
+          useCORS: true,
+          svgRendering: true,
+      },
+      jsPDF: {unit: 'in', format: 'letter', orientation: 'portrait'}
     })
     .from(element)
-    .save();
-  /*html2canvas(element).then((canvas) => {
-    const imgData = canvas.toDataURL('image/png');
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF();
-    pdf.addImage(imgData, 'PNG', 0, 0);
-    pdf.save('download.pdf');
-  });*/
+    .save()
+    .then(() => {
+      $("body").removeClass("wait");
+      //document.body.removeChild(element)
+    })
 }
 
 function addHTMLElements(container_div_id, args) {
@@ -383,18 +402,6 @@ function addHTMLElements(container_div_id, args) {
   div_container.innerHTML = ""
   var tree_cohort_div_id = args.tree_cohort_div_id
   var outer_div = document.createElement('div')
-
-  // Button download.
-  var button_dwl = createActionIcon("fa fa-download")
-  button_dwl.addEventListener('click', (event) => {
-    var target_div = document.getElementById(event.currentTarget.target_div_id)
-    var args = {
-      "element": target_div
-    }
-    async_func(args, downloadDiv_slow)
-  })
-  button_dwl.target_div_id = tree_cohort_div_id
-  outer_div.appendChild(button_dwl)  
 
   // Button zoom in.
   var button_zoomIn = createActionIcon("fa fa-search-plus")
@@ -423,9 +430,22 @@ function addHTMLElements(container_div_id, args) {
   button_zoomReset.target_div_id = tree_cohort_div_id
   outer_div.appendChild(button_zoomReset)
 
+  // Button download.
+  var button_dwl = createActionIcon("fa fa-download")
+  button_dwl.id = "dwl_button"
+  addInfoBoxToElement(button_dwl, "Export each tree cohort view as a camera-ready PDF figure.",
+      bg_color="#0868d2", width=115, margin_left="", position="top", line_height="17px")
+  button_dwl.addEventListener('click', (event) => {
+    var target_div = document.getElementById(event.currentTarget.target_div_id)
+    downloadDiv(target_div)
+  })
+  button_dwl.target_div_id = tree_cohort_div_id
+  outer_div.appendChild(button_dwl)
+
   // Trev view buttons.
   var tree_view_div = createBlueBorder() 
   var tree_view_button = document.createElement('button')
+  tree_view_button.id = "tree_view_button"
   tree_view_button.className = "button-15"
   tree_view_button.addEventListener('click', ()=>{ populateTreeView(args); })
   tree_view_button.innerHTML = '<i class="fa fa-tree" style="font-size:19px"></i>&nbsp;TREE VIEW'
@@ -470,7 +490,7 @@ function addHTMLElements(container_div_id, args) {
   var button_matching_id = "matching"
   var button_matching = createActionIcon("fa fa-times-circle", button_matching_id)
   addInfoBoxToElement(button_matching, "Highlight <b>matching subclones and conserved branches</b> (default), " +
-      "<b>conserved edges only</b>, or <b>matching subclones only</b>. Matching nodes have the same " +
+      "<b>conserved branches only</b>, or <b>matching subclones only</b>. Matching nodes have the same " +
       "<i>matching_label</i>.", bg_color="#0868d2", width=190, margin_left="", position="top", line_height="17px")
   button_matching.addEventListener('click', (event) => {
     var this_button = document.getElementById(event.currentTarget.id)
@@ -502,6 +522,7 @@ function addHTMLElements(container_div_id, args) {
     var heatmap_view_div = createBlueBorder()
     var heatmap_view_button = document.createElement('button')
     heatmap_view_button.className = "button-15"
+    heatmap_view_button.id = "heatmap_view_button"
     heatmap_view_button.addEventListener('click', ()=>{ populateHeatmapView(args) })
     heatmap_view_button.innerHTML = '<i style="font-size:19px" class="fa fa-th-large"></i> HEATMAP VIEW'
     addInfoBoxToElement(heatmap_view_button, "Show a heatmap visualization of the given pairwise distances between the mutation trees.",
@@ -541,6 +562,7 @@ function addHTMLElements(container_div_id, args) {
 
     var umap_view_button = document.createElement('button')
     umap_view_button.className = "button-15"
+    umap_view_button.id = "umap_view_button"
     umap_view_button.addEventListener('click', ()=>{ populate2DView(args); })
     umap_view_button.innerHTML = '<i style="font-size:19px" class="fa fa-dot-circle-o"></i> 2D VIEW'
     addInfoBoxToElement(umap_view_button, "Show a 2D projection of the tree points" +
@@ -642,11 +664,11 @@ function populateTreeView_slow(args){
   tree_info_div.innerHTML = '<div style="text-align:center;height:100%;display:flex;flex-direction:row;' +
       'align-items:center;justify-content:center;"><i>The tree clusters are indicated by<br/>' +
       ' different background <font color=#A87676>c</font><font color=#E493B3>o</font><font color=#B784B7>l</font><font color=#8E7AB5>o</font>'+
-      '<font color=#F6995C>r</font><font color=#88AB8E>s</font>. <br/>' +
-      ' Zoom out <i class="fa fa-search-minus"></i> to get the<br/> full overview of the tree clusters.<br/><br/>***<br/><br/>' +
-      ' Click on the trees to visualize<br/>details of each subclone.<br/><br/>' +
-      ' Click on the " <i class="fa fa-desktop fa-sm"></i> show cluster details" icons<br/>' +
-      ' to visualize additional cluster information.'+
+      '<font color=#F6995C>r</font><font color=#88AB8E>s</font>.&lrm;<br/>' +
+      ' Zoom out <i class="fa fa-search-minus"></i> to get the<br/> full overview of the tree clusters.&lrm;<br/><br/>***<br/><br/>' +
+      ' Click on the trees to visualize<br/>details of each subclone.&lrm;<br/><br/>' +
+      ' Click on the " <i class="fa fa-desktop fa-sm"></i> show details of cluster X" icons<br/>' +
+      ' to visualize additional cluster information.&lrm;'+
       '</i></div>'
   tree_info_div.style.backgroundColor = "white"
 
@@ -706,6 +728,7 @@ function populateTreeView_slow(args){
       if (clusters.length > 1 && j == 0 && cluster.length > 1) {
         // Show cluster details button.
         var click_cluster_details_div = document.createElement("div")
+        click_cluster_details_div.id = "cluster_details_" + i
         click_cluster_details_div.style.cursor = "pointer"
         var text_color = tinycolor(cluster_color).darken(30).desaturate(40).toHexString()
         click_cluster_details_div.innerHTML = '&nbsp;<b><i class="fa fa-desktop fa-sm" style="color:' + text_color +
@@ -1139,8 +1162,6 @@ function showTreeInfo(sample_name, args) {
   var drug_gene_map = {}
   var drug_name_map = {}
   var drug_list = []
-  var target_gene = ""
-  var target_drug = ""
   if (gene_categories.size) {
     var gene_list = Array.from(Array.from(gene_categories.values())[0])
     var gene_list_with_details = Array.from(Array.from(gene_categories_with_details.values())[0])
@@ -1201,7 +1222,7 @@ function showTreeInfo(sample_name, args) {
         drug_short_name += "..."
       }
       drug_name_map[drug_short_name] = drug_list[idx]
-      drug_selection_dropdown.options[drug_selection_dropdown.options.length] = new Option(drug_short_name, idx);
+      drug_selection_dropdown.options[drug_selection_dropdown.options.length] = new Option(drug_short_name, drug_short_name);
     }
     div_container = document.createElement('div')
     div_container.style.direction = "ltr"
@@ -1421,9 +1442,10 @@ function addGeneToGeneList(html_element, gene_list, category){
   optgroup = document.createElement('optgroup')
   optgroup.label = category
   for (var gene of gene_list){
-    option = document.createElement('option');
-    option.textContent = gene;
-    optgroup.appendChild(option);
+    option = document.createElement('option')
+    option.textContent = gene
+    option.value = gene
+    optgroup.appendChild(option)
   }
   html_element.appendChild(optgroup);
 }
@@ -1804,7 +1826,6 @@ function showClusterInfo_slow(args) {
   var meta_box_id = "cluster_meta"
   var meta_box_div = createDivContainer(meta_box_id)
   meta_box_div.style.direction = "ltr"
-  //meta_box_div.style.display = 'none'
 
   div_table_1 = createDivContainer("table_1")
   div_table_1.style.display = "inline-block"
@@ -2025,7 +2046,7 @@ function populateHeatmapView_slow(args) {
   div_tree_info.style.backgroundColor = "transparent"
   div_tree_info.innerHTML = "<div style='text-align:center;height:100%;display:flex;flex-direction:row;" +
       "align-items:center;justify-content:center;'><i>Click on the sample names <br/>and" +
-      " on the colored frames<br/>(corresponding to the given tree clusters)<br/> to visualize additional information.</i></div>"
+      " on the colored frames<br/>(corresponding to the given tree clusters)<br/> to visualize additional information.&lrm;</i></div>"
 
   // Data.
   data = args.data
@@ -2403,7 +2424,7 @@ function populate2DView_slow(args) {
   div_tree_info.style.backgroundColor = "transparent"
   div_tree_info.innerHTML = "<div style='text-align:center;height:100%;display:flex;flex-direction:row;" +
       "align-items:center;justify-content:center;'><i>Click on the 2D points" +
-      "<br/>to visualize additional information<br/>about the corresponding mutation tree.</i></div>"
+      "<br/>to visualize additional information<br/>about the corresponding mutation tree.&lrm;</i></div>"
 
   // Data.
   distances = args.data["pairwise_tree_distances"]
@@ -2944,6 +2965,7 @@ function displayTree(div_id, tree_label, tree_data, target_gene,
       } else {
         return d.data.color
       }
+      return "white"
     })
     .style("stroke", function(d) {
       if (d.data.size_percent == 0) {

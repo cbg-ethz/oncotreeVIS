@@ -6,6 +6,11 @@ body.wait, body.wait *{
     cursor: wait !important;   
 }
 
+div {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
 .logo {
     font-size: inherit;
 }
@@ -222,3 +227,24 @@ body.wait, body.wait *{
 .info-tooltip:hover .tooltiptext-bottom {
   visibility: visible;
 }
+
+.shepherd-element {
+  border-radius: 8px !important;
+  border: 2px solid gray !important;
+  width: 390px !important;
+}
+
+.shepherd-header {
+  background: radial-gradient(#ffffff 0%, #b4a7d6) !important;
+  text-align: center !important;
+  justify-content: center !important;
+  height: 50px !important;
+}
+
+.shepherd-title {
+  font-size: 2rem !important;
+  font-weight: bold !important;
+  margin-left: 25% !important;
+} 
+
+

@@ -5,9 +5,10 @@
 <link rel="stylesheet" type="text/css" href="css/style.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shepherd.js/7.1.2/css/shepherd.css">
 
 <!-- Load the javascript libraries -->    
+<script src="https://cdnjs.cloudflare.com/ajax/libs/shepherd.js/7.1.2/js/shepherd.min.js"></script>
 <script src="dependencies/jquery.min.js"></script>
 <script src="dependencies/d3.v4.min.js"></script>
 <script src="dependencies/d3-selection-multi.v1.js"></script>
@@ -37,11 +38,11 @@
   <div style="width: 300px; height: 60px; background: radial-gradient(#ffffff 0%, #b4a7d6); text-align: center; ">
     <p id="logo" style="font-family:Calibri, sans-serif; font-size:40px; letter-spacing: 0.5px;"><b>&nbsp; oncotreeVIS &nbsp;</b></p>
   </div> 
-  <div style="background-color: #b4a7d6; height: 60px; padding-top:5px;">
+  <div id="github" style="background-color: #b4a7d6; height: 60px; padding-top:5px;">
     &nbsp;&nbsp;<a style="text-decoration: none"  href="https://github.com/cbg-ethz/oncotreeVIS" target="new">
       <i class="fa fa-github" style="font-size:48px; color:#353935"></i>&nbsp;&nbsp; </a>
   </div>
-  <div style="background-color: #b4a7d6; height: 60px; padding-top:9px;">
+  <div id="paper" style="background-color: #b4a7d6; height: 60px; padding-top:9px;">
     &nbsp;&nbsp;<a style="text-decoration: none"  href="https://www.biorxiv.org/content/10.1101/2024.11.15.623847v1" target="paper">
       <i class="fa fa-file-text-o" style="font-size:40px; color:#353935"></i>&nbsp;&nbsp;&nbsp; </a>
   </div>
@@ -90,7 +91,7 @@ datasets = {
     "1,214 Breast cancer mutation trees (Razavi et al. 2018)": {"data": data_brca_razavi},
     "145 AML joint CN-point mutation trees (COMPASS, Sollier et al. 2022)": {"data": data_aml_compass},
     "21 TumorProfiler AML CN trees": {"data": data_tupro_aml},
-    "--> Load custom mutation tree cohort file": {}
+    "--> Load custom mutation tree cohort file on the fly (no server involved)": {}
 }
             
 var drop_down_cohorts = document.getElementById("drop-down-cohort")
@@ -172,6 +173,787 @@ $('#drop-down-cohort').change(function(){
 
 data = data_aml_morita
 oncotreeVIS(data, "container")
+
+</script>
+
+<script>
+
+function waitForElement(selector, callback) {
+  const element = document.querySelector(selector);
+  if (element) {
+    callback(element);
+    return;
+  }
+
+  const observer = new MutationObserver((mutations, obs) => {
+    const el = document.querySelector(selector);
+    if (el) {
+      callback(el);
+      obs.disconnect();
+    }
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+}
+
+setTimeout(() => {
+  // Initialize Shepherd Tour
+  const tour = new Shepherd.Tour({
+    defaultStepOptions: {
+      scrollTo: true,
+      canClickTarget: false,
+      showCancelLink: true,
+      modal: true,
+      cancelIcon: {
+        enabled: true
+      },
+      classes: "custom-shepherd-card",
+      when: {
+        show: () => {
+          document.querySelectorAll(".shepherd-content").forEach((element) => {
+            element.removeAttribute("tabindex");
+          });
+        }
+      }
+    },
+    useModalOverlay: true
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Getting started with oncotreeVIS</h5>
+        <p>This tour will guide you through the main features of the visualization.</p>
+      </div>
+    `,
+    buttons: [
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ]
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Tree view</h5>
+        <p style="text-align: justify;">By default, mutation trees are visualized side by side. If a clustering is provided, the trees are ordered according to the given cluster groups, indicated by different background colors.</p>
+      </div>
+    `,
+    attachTo: { element: "#tree_view_button", on: "bottom" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [15, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Tree view</h5>
+        <p style="text-align: justify;"> Select the order in which the trees are displayed: <b>(1)</b> according to the clusters, <b>(2)</b> alphabetical order, or <b>(3)</b> random order."</p> 
+      </div>
+    `,
+    attachTo: { element: "#sort_trees", on: "bottom" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [15, 15] // x, y offset
+          }
+        }
+      ] 
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Tree view</h5>
+        <p style="text-align: justify;">Choose to highlight different facets of the data: <b>(1)</b> matching subclones and conserved branches (default), <b>(2)</b> conserved branches only, or <b>(3)</b> matching subclones only.
+        </p>
+      </div>
+    `,
+    attachTo: { element: "#matching", on: "bottom" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center', 
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  waitForElement('[id^="AML-07-002_"]', (el) => {});
+  tree_div = document.querySelector('[id^="AML-07-002_"]')
+  tree_div_id = tree_div.id
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Tree view</h5>
+        <p style="text-align: justify;">The nodes of a mutation tree correspond to different genetic events (SNVs, CNAs, etc), and the tree structure encodes the partial temporal order in which mutations occurred.
+<p style='margin:6px;'></p>
+        <b>Node sizes</b> reflect the relative size of the subclonal cell populations.
+<p style='margin:6px;'></p>
+        <b>Node colors</b> reflect user provided node matching label IDs.
+<p style='margin:6px;'></p>
+        <b>Conserved trajectories</b> between trees from the same cluster are highlighted.</p>
+      </div>
+    `,
+    attachTo: { element: "#" + tree_div_id, on: "right" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [15, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tree_div = document.querySelector('[id^="AML-07-002_"]')
+  tree_div_id = tree_div.id
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Tree view</h5>
+        <p style="text-align: justify;">By clicking on each cluster, additional details are displayed: a summary of the clinical data (if provided) and information on the mutation events shared between the subclones with the same matching label ID in the cluster trees.</p>
+      </div>
+    `,
+    attachTo: { element: "#cluster_details_0", on: "right" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    when: {
+      show: () => {
+        const button = document.querySelector('#cluster_details_0');
+        if (button) {
+          button.click();
+        }
+      }
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [15, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Tree info</h5>
+        <p style="text-align: justify;">
+        Each mutation tree can be explored interactively to track the impact of individual genes (colored nodes)
+        and drugs of interest (green squares) on the evolution of the tumor. </p>
+      </div>
+    `,
+    attachTo: { element: "#tree_info", on: "left" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    when: {
+      show: () => {
+        const button = document.querySelector('[id^="AML-76-001_"]');
+        if (button) {
+          button.click();
+        }
+        target_gene = "NRAS"
+        target_drug = "DECITABINE"
+        $('#gene_selection option[value="' + target_gene +'"]').prop('selected', true);
+        $('#drug_selection option[value="' + target_drug +'"]').prop('selected', true);
+
+        const event = new Event('change', { bubbles: true });
+        const dropdown_genes = document.getElementById('gene_selection');
+        dropdown_genes.dispatchEvent(event); 
+        const dropdown_drugs = document.getElementById('drug_selection');
+        dropdown_drugs.dispatchEvent(event);
+      }
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Tree info</h5>
+        <p style="text-align: justify;">Visualize the user provided clinical data.</p>
+      </div>
+    `,
+    attachTo: { element: "#metadata", on: "left" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    when: {
+      show: () => {
+        const button = document.querySelector('#button_metadata');
+        if (button) {
+          button.click();
+        }
+      }
+    },
+    buttons: [
+      {      
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [15, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Tree info</h5>
+        <p style="text-align: justify;">Consult the list of drugs which interact with the selcted target gene according to the Drug Gene Interaction database (DGIdb).</p>
+      </div>
+    `,
+    attachTo: { element: "#top_drugs", on: "left" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    when: {
+      show: () => {
+        const button = document.querySelector('#button_top_drugs');
+        if (button) {
+          button.click();
+        }
+      }
+    },
+    buttons: [
+      {      
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [15, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  //y_offset = document.getElementById('knn').offsetHeight/2
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Tree info</h5>
+        <p style="text-align: justify;">Check the K-nearest matching trees to the 
+        selected tree based on the user provided node matching label IDs.</p>
+      </div>
+    `,
+    attachTo: { element: "#knn", on: "left" },
+    scrollTo: {
+      behavior: 'smooth',
+      //block: 'top',
+    },
+    when: {
+      show: () => {
+        const button = document.querySelector('#button_knn');
+        if (button) {
+          button.click();
+        }
+      }
+    },
+    buttons: [
+      {      
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [-100, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Heatmap view</h5>
+        <p style="text-align: justify;">
+        Heatmap view of the pairwise tree distances between mutation trees, based on user provided data.
+        </p>
+      </div>
+    `,
+    attachTo: { element: "#heatmap_view_button", on: "bottom" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    when: {
+      show: () => {
+        const button = document.querySelector('#heatmap_view_button');
+        if (button) {
+          button.click();
+        }
+      }
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">2D view</h5>
+        <p style="text-align: justify;">
+          2D representation of the trees in latent space, based on user provided pairwise distances between the mutation trees.
+        </p>
+      </div>
+    `,
+    attachTo: { element: "#umap_view_button", on: "bottom" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    when: {
+      show: () => {
+        const button = document.querySelector('#umap_view_button');
+        if (button) {
+          button.click();
+        } 
+      } 
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Download figures</h5>
+        <p style="text-align: justify;">
+        Export each tree cohort view as a camera-ready PDF figure.
+        </p>
+      </div>
+    `,
+    attachTo: { element: "#dwl_button", on: "bottom" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next, 
+        classes: "mui-btn"
+      }         
+    ],      
+    popperOptions: { 
+      modifiers: [
+        {       
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset 
+          }
+        }       
+      ]
+    }           
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Predefined datasets</h5>
+        <p style="text-align: justify;">
+          To test the oncotreeVIS visualization you can choose one of the 7 predefined public mutation tree cohorts we provide.
+          <br/><br/>
+          To visualize your own mutation tree cohort, click "--> Load custom mutation tree cohort file on the fly (no server involved)" and check the instructions about how to load your data in a predefined JSON format.          
+        </p>
+      </div>
+    `,
+    attachTo: { element: "#drop-down-cohort", on: "bottom" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    when: {
+      show: () => {
+        const dropdownToggle = document.querySelector('#drop-down-cohort');
+        if (dropdownToggle) {
+          dropdownToggle.click();
+        }
+      }
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Documentation</h5>
+        <p style="text-align: justify;">JSON files used for the predefined datasets, data conversion scripts, instructions on how to use oncotreeVIS locally and full documentation are available on GitHub.
+</p>
+      </div>
+    `,
+    attachTo: { element: "#github", on: "bottom" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Documentation</h5>
+        <p style="text-align: justify;">Check our paper for additional details.</p>
+      </div>
+    `,
+    attachTo: { element: "#paper", on: "bottom" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">That’s it!</h5>
+        <p style="text-align: justify;">Good luck exploring the oncotreeVIS interface.</p>
+      </div>
+    `,
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Finish",
+        action: tour.complete,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  tour.start();
+
+  tour.on('complete', () => {
+    oncotreeVIS(data, "container")
+  });
+
+  tour.on('cancel', () => {
+    oncotreeVIS(data, "container")
+  });
+}, 200);
 
 </script>
 </body>
