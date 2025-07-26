@@ -1233,7 +1233,7 @@ function showTreeInfo(sample_name, args) {
     var info_icon = createInfoTooltip("fa fa-question-circle")
     info_text = "Subclones with affected genes that have a theoretical " +
       "interaction with the <b> selected target drug</b> (according to DGIdb) are indicated with green squares in the mutation tree below. " + 
-       "Drugs are listed in descending order by the number of cells they affect. Only drug interactions with at least 3 citations are considered."
+       "Drugs are listed in descending order by the number of cells they affect. Only drug interactions with at least one citation are considered."
     addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=230, margin_left="", position="left", line_height="17px")
     div_container.appendChild(info_icon)
 
@@ -1551,9 +1551,9 @@ function populateGeneDrugInfoHTML(target_gene, gene_drug_map) {
   inhibitors = []
   others = []
   for (var drug of drugs) {
-    if (drug.drug_score < 3) {
-      continue
-    }
+    //if (drug.num_citations < 3) {
+    //  continue
+    //}
     if(isInhibitor(drug.interaction_types)) { 
       inhibitors.push(drug)
     }
@@ -1566,7 +1566,7 @@ function populateGeneDrugInfoHTML(target_gene, gene_drug_map) {
   }
 
   if (activators.length + inhibitors.length + others.length == 0) {
-    return "No drugs associated with target gene in at least 3 citations.<br/>"
+    return "No drugs associated with target gene in at least one citation.<br/>"
   }
 
   html_string = ""
@@ -1574,7 +1574,7 @@ function populateGeneDrugInfoHTML(target_gene, gene_drug_map) {
     html_string += "<b><u>Activators:</u></b><br/>"
     for (var drug of activators) {
       html_string += "<a href='https://www.dgidb.org/results?searchType=drug&searchTerms=" + drug.drug_name + 
-        "' target='dgidb'>" + drug.drug_name + "</a> (" + drug.drug_score + " citations)<br/>"
+        "' target='dgidb'>" + drug.drug_name + "</a><br/>"
     }
   }
 
@@ -1582,7 +1582,7 @@ function populateGeneDrugInfoHTML(target_gene, gene_drug_map) {
     html_string += "<b><u>Inhibitors:</u></b><br/>"
     for (var drug of inhibitors) {
       html_string += "<a href='https://www.dgidb.org/results?searchType=drug&searchTerms=" + drug.drug_name +
-        "' target='dgidb'>" + drug.drug_name + "</a> (" + drug.drug_score + " citations)<br/>"
+        "' target='dgidb'>" + drug.drug_name + "</a><br/>"
     }
   }
 
@@ -1592,7 +1592,7 @@ function populateGeneDrugInfoHTML(target_gene, gene_drug_map) {
   if(others.length) {
     for (var drug of others) {
       html_string += "<a href='https://www.dgidb.org/results?searchType=drug&searchTerms=" + drug.drug_name +
-        "' target='dgidb'>" + drug.drug_name + "</a> (" + drug.drug_score + " citations)<br/>"
+        "' target='dgidb'>" + drug.drug_name + "</a><br/>"
     }
   }
   return html_string
@@ -1604,15 +1604,15 @@ function populateGeneDrugInfoHTML(target_gene, gene_drug_map) {
 function parseGeneDrugInteractions(gene_drug_interaction){
   // Returns a map with gene key and drug info value.
   gene_drug_map = new Map()
-  for (var item of gene_drug_interaction["matchedTerms"]) {
-    gene = item["searchTerm"]
+  for (var item of gene_drug_interaction["data"]["genes"]["nodes"]) {
+    gene = item["name"]
     gene_drug_map.set(gene, [])
     for (var drug of item["interactions"])  {
       drug_info = {}
-      drug_info["drug_name"] = drug.drugName
+      drug_info["drug_name"] = drug["drug"]["name"]
       drug_info["interaction_types"] = drug.interactionTypes
-      drug_info["drug_sources"] = drug.sources
-      drug_info["drug_score"] = drug.score
+      drug_info["num_citations"] = drug["publications"].length
+      drug_info["drug_score"] = drug["interactionScore"]
       gene_drug_map.get(gene).push(drug_info)
     }
   }
@@ -1624,9 +1624,9 @@ function getDrugToGeneMap(gene_list, gene_drug_map) {
   for (var gene of gene_list){
     if(gene_drug_map.has(gene)) {
       for (var drug of gene_drug_map.get(gene)){
-        if(drug["drug_score"] < 3) {
-          continue
-        }
+        //if(drug["num_citations"] < 3) {
+        //  continue
+        //}
         drug_name = drug.drug_name.substring(0,30)
         if (drug_gene_map.has(drug_name)) {
           drug_gene_map.get(drug_name).push(gene)
@@ -1675,9 +1675,11 @@ function findDrugsAffectingGeneList(tumor_gene_list, drug_gene_map, tree_object)
 
 function isInhibitor(interaction_types) {
   for (var interaction of interaction_types){
-    string = interaction.toLowerCase()
-    if(string.includes("inhibitor") || string.includes("modulator") || string.includes("antagonist")) {
-      return true
+    if (interaction["directionality"]) {
+      string = interaction["directionality"].toUpperCase()
+      if(string.includes("INHIBITORY")) {
+        return true
+      }
     }
   }
   return false
@@ -1685,19 +1687,11 @@ function isInhibitor(interaction_types) {
 
 function isActivator(interaction_types) {
   for (var interaction of interaction_types){
-    string = interaction.toLowerCase()
-    if(string.includes("activator") || string.includes("inducer") || string.includes("agonist")) {
-      return true
-    }
-  }
-  return false
-}
-
-function isAntibody(interaction_types) {
-  for (var interaction of interaction_types){
-    string = interaction.toLowerCase()
-    if(string.includes("antibody") || string.includes("binder")) {
-      return true
+    if(interaction["directionality"]) {
+      string = interaction["directionality"].toUpperCase()
+      if(string.includes("ACTIVATING")) {
+        return true
+      }
     }
   }
   return false
