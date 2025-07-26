@@ -1317,7 +1317,7 @@ function showTreeInfo(sample_name, args) {
   var info_icon = createInfoTooltip("fa fa-question-circle")
   info_text = "K-nearest matching trees to the selected tree based on the provided <i>matching_labels</i>, " + 
       "computed using a greedy approximation algorithm for the maximum matching problem with ordering constraints. " +
-      "The panel shows pairs of matching trees, where the left tree always corresponds to the target sample, and the " +
+      "The panel shows pairs of matching trees (where the left tree always corresponds to the target sample) and the " +
       "corresponding matching subclones."
   addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=230, margin_left="", position="top", line_height="20px")
   header_knn.appendChild(info_icon)
