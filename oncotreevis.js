@@ -1303,8 +1303,8 @@ function showTreeInfo(sample_name, args) {
     sample_matches = knn_keys.filter((key) => key.startsWith(sample_name))
     if (sample_matches.length) {
       sample_matches.sort((key_1, key_2) => knn[key_2]["similarity"] - knn[key_1]["similarity"])
-      for(let key of sample_matches) {
-        async_displayTreeMatching(knn_box_id, knn[key])
+      for(const [i, key] of sample_matches.entries()) {
+        async_displayTreeMatching(knn_box_id, knn[key], idx=i+1)
       }
     } else {
       knn_box_div.innerHTML = "<i>No matching trees found.</i>"
@@ -1316,8 +1316,10 @@ function showTreeInfo(sample_name, args) {
   header_knn.appendChild(createExpandBox(knn_box_id))
   var info_icon = createInfoTooltip("fa fa-question-circle")
   info_text = "K-nearest matching trees to the selected tree based on the provided <i>matching_labels</i>, " + 
-      "computed using a greedy approximation algorithm for the maximum matching problem with ordering constraints."
-  addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=177, margin_left="", position="top", line_height="20px")
+      "computed using a greedy approximation algorithm for the maximum matching problem with ordering constraints. " +
+      "The panel shows pairs of matching trees, where the left tree always corresponds to the target sample, and the " +
+      "corresponding matching subclones."
+  addInfoBoxToElement(info_icon, info_text, bg_color="#353935", width=230, margin_left="", position="top", line_height="20px")
   header_knn.appendChild(info_icon)
   appendLineBreak(tree_info_div)
 
@@ -3082,7 +3084,7 @@ function getXShift(dx, group) {
   return dx * 100 
 }
 
-async function async_displayTreeMatching(div_id, data) {
+async function async_displayTreeMatching(div_id, data, idx="") {
   displayTreeMatching(div_id, data)
   await sleep(2000)
 }
@@ -3119,7 +3121,7 @@ function displayTreeMatching(div_id, data) {
     .attr("y", 30)
     .attr("width",10)
     .style("font-size", "13px")
-    .text(sample_1 + " - " + sample_2);
+    .text("(" + idx + ") " + sample_1 + " - " + sample_2);
 
   for (var node of nodes) {
     group = 2

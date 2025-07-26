@@ -458,7 +458,9 @@ setTimeout(() => {
         <h5 style="margin-bottom: 8px;">Tree info</h5>
         <p style="text-align: justify;">
         Each mutation tree can be explored interactively to track the impact of individual genes (colored nodes)
-        and drugs of interest (green squares) on the evolution of the tumor. </p>
+        and drugs of interest (green squares) on the evolution of the tumor.<br/><br/> 
+        Expand left by dragging the bottom-left corner.
+        </p>
       </div>
     `,
     attachTo: { element: "#tree_info", on: "left" },
@@ -608,7 +610,7 @@ setTimeout(() => {
       <div>
         <h5 style="margin-bottom: 8px;">Tree info</h5>
         <p style="text-align: justify;">Check the K-nearest matching trees to the 
-        selected tree based on the user provided node matching label IDs.</p>
+        selected tree, based on user provided node matching label IDs.</p>
       </div>
     `,
     attachTo: { element: "#knn", on: "left" },
