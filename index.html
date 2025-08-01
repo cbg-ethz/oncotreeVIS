@@ -16,7 +16,13 @@
 <script src="dependencies/numeric.js"></script>
 <script src="dependencies/svd.js"></script>
 <script src="dependencies/jquery.lazyload-any.js"></script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/svg2pdf.js/dist/svg2pdf.min.js"></script>
+
 <script src="oncotreevis.js"></script>
 <script src="dgidb_query_response.js"></script>
 
@@ -55,6 +61,16 @@
 
 <div width=100% id="container"> </div>
 </div>
+
+<!--
+<div id="capture" style="background: #eee; padding: 20px;">
+  <svg width="400" height="200" viewBox="0 0 400 200">
+    <circle cx="100" cy="100" r="80" fill="blue" />
+  </svg>
+  <canvas id="myCanvas" width="300" height="150" style="background: red;"></canvas>
+  <div style="width: 500px; height: 300px; background: lightgreen;">Some long content</div>
+</div>
+-->
 
 <script>
 function load() {
@@ -178,24 +194,34 @@ oncotreeVIS(data, "container")
 
 <script>
 
-function waitForElement(selector, callback) {
-  const element = document.querySelector(selector);
-  if (element) {
-    callback(element);
-    return;
-  }
+function waitForElement(regex, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    // Helper function to search the DOM for matching element
+    const findMatchingElement = () => {
+      const elements = document.querySelectorAll('[id]');
+      return Array.from(elements).find(el => regex.test(el.id));
+    };
 
-  const observer = new MutationObserver((mutations, obs) => {
-    const el = document.querySelector(selector);
-    if (el) {
-      callback(el);
-      obs.disconnect();
-    }
-  });
+    // Try to find it immediately
+    const existingMatch = findMatchingElement();
+    if (existingMatch) return resolve(existingMatch);
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
+    // Set up a MutationObserver to watch for changes
+    const observer = new MutationObserver(() => {
+      const match = findMatchingElement();
+      if (match) {
+        observer.disconnect();
+        resolve(match);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // Set timeout to reject if element doesn't appear
+    setTimeout(() => {
+      observer.disconnect();
+      reject(new Error(`Timeout: No element matching regex ${regex} found`));
+    }, timeout);
   });
 }
 
@@ -356,7 +382,6 @@ setTimeout(() => {
   });
 
   // Page.
-  waitForElement('[id^="AML-07-002_"]', (el) => {});
   tree_div = document.querySelector('[id^="AML-07-002_"]')
   tree_div_id = tree_div.id
   tour.addStep({
@@ -364,16 +389,10 @@ setTimeout(() => {
     text: `
       <div>
         <h5 style="margin-bottom: 8px;">Tree view</h5>
-        <p style="text-align: justify;">The nodes of a mutation tree correspond to different genetic events (SNVs, CNAs, etc), and the tree structure encodes the partial temporal order in which mutations occurred.
-<p style='margin:6px;'></p>
-        <b>Node sizes</b> reflect the relative size of the subclonal cell populations.
-<p style='margin:6px;'></p>
-        <b>Node colors</b> reflect user provided node matching label IDs.
-<p style='margin:6px;'></p>
-        <b>Conserved trajectories</b> between trees from the same cluster are highlighted.</p>
+        <p style="text-align: justify;">Use the <b>zoom in</b>, <b>zoom out</b> and <b>reset</b> buttons to adjust the number of trees on the screen.</p>
       </div>
     `,
-    attachTo: { element: "#" + tree_div_id, on: "right" },
+    attachTo: { element: "#button_zoom_out", on: "bottom" },
     scrollTo: {
       behavior: 'smooth',
       block: 'center',
@@ -425,6 +444,53 @@ setTimeout(() => {
           button.click();
         }
       }
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [15, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  waitForElement(/^AML-07-002_.*_tree$/, (el) => {});
+  tree_div = document.querySelector('[id^="AML-07-002_"]')
+  tree_div_id = tree_div.id
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Tree view</h5>
+        <p style="text-align: justify;">The nodes of a mutation tree correspond to different genetic events (SNVs, CNAs, etc), and the tree structure encodes the partial temporal order in which mutations occurred.
+<p style='margin:6px;'></p>
+        <b>Node sizes</b> reflect the relative size of the subclonal cell populations.
+<p style='margin:6px;'></p>
+        <b>Node colors</b> reflect user provided node matching label IDs.
+<p style='margin:6px;'></p>
+        <b>Conserved trajectories</b> between trees from the same cluster are highlighted.</p>
+      </div>
+    `,
+    attachTo: { element: "#" + tree_div_id, on: "right" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
     },
     buttons: [
       {
@@ -504,6 +570,44 @@ setTimeout(() => {
           name: 'offset',
           options: {
             offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Tree info</h5>
+        <p style="text-align: justify;">Download mutation tree representation as camera-ready PDF figure.</p>
+      </div>
+    `,
+    attachTo: { element: "#tree_dwl_button", on: "left" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    buttons: [
+      {      
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [15, 15] // x, y offset
           }
         }
       ]
@@ -703,6 +807,86 @@ setTimeout(() => {
     title: "oncotreeVIS",
     text: `
       <div>
+        <h5 style="margin-bottom: 8px;">Heatmap view</h5>
+        <p style="text-align: justify;">
+        Sample names on axis labels are clickable.
+        </p>
+      </div>
+    `,
+    attachTo: { element: "#AML-118-001_label", on: "right" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },    
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      { 
+        text: "Next",
+        action: tour.next, 
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
+        <h5 style="margin-bottom: 8px;">Heatmap view</h5>
+        <p style="text-align: justify;">
+        By clicking on each highlighted cluster, a summary of the cluster clinical data (if provided) is displayed.
+        </p>
+      </div>
+    `,
+    attachTo: { element: "#rect_2", on: "right" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
         <h5 style="margin-bottom: 8px;">2D view</h5>
         <p style="text-align: justify;">
           2D representation of the trees in latent space, based on user provided pairwise distances between the mutation trees.
@@ -751,13 +935,61 @@ setTimeout(() => {
     title: "oncotreeVIS",
     text: `
       <div>
+        <h5 style="margin-bottom: 8px;">2D view</h5>
+        <p style="text-align: justify;">
+          By clicking on each point, additional tree information is shon.
+        </p>
+      </div>
+    `,
+    attachTo: { element: "#point_AML-90-001", on: "right" },
+    scrollTo: {
+      behavior: 'smooth',
+      block: 'center',
+    },
+    when: {
+      show: () => {
+        const button = document.querySelector('#point_AML-90-001');
+        if (button) {
+          button.click();
+        }
+      }
+    },
+    buttons: [
+      {
+        text: "Back",
+        action: tour.back,
+        classes: "mui-btn"
+      },
+      {
+        text: "Next",
+        action: tour.next,
+        classes: "mui-btn"
+      }
+    ],
+    popperOptions: {
+      modifiers: [
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 15] // x, y offset
+          }
+        }
+      ]
+    }
+  });
+
+  // Page.
+  tour.addStep({
+    title: "oncotreeVIS",
+    text: `
+      <div>
         <h5 style="margin-bottom: 8px;">Download figures</h5>
         <p style="text-align: justify;">
         Export each tree cohort view as a camera-ready PDF figure.
         </p>
       </div>
     `,
-    attachTo: { element: "#dwl_button", on: "bottom" },
+    attachTo: { element: "#main_dwl_button", on: "bottom" },
     scrollTo: {
       behavior: 'smooth',
       block: 'center',
@@ -956,6 +1188,5 @@ setTimeout(() => {
     oncotreeVIS(data, "container")
   });
 }, 200);
-
 </script>
 </body>

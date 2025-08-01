@@ -347,54 +347,69 @@ function createBlueBorder(){
   return div
 }
 
-function createActionIcon(icon_class, id=null) {
+function createActionIcon(icon_class, id=null, color="#0878d0") {
   var button = document.createElement('span')
   if (id) {
     button.setAttribute("id", id)
   }
   button.innerHTML = '<a class="action_icon"><i class="' + icon_class +
-      '" style="font-size:19px; cursor: pointer;"></i></a>&nbsp;'
+      '" style="font-size:19px; cursor: pointer; color: ' + color  + ';"></i></a>&nbsp;'
   return button
 }
 
-function downloadDiv(original_element) {
-  $("body").addClass("wait")
 
-  const element = original_element.cloneNode(true)
-  document.body.appendChild(element)
+function divToPDF(args) {
+  async_func(args, divToPDF_slow)
+}
 
-  var svgElements = element.getElementsByTagName('svg');
-  Array.from(svgElements).forEach((svg) => {
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const svgBase64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-      
-    // Create a new <img> element
-    const img = document.createElement('img');
-    img.src = svgBase64;
-    img.width = svg.clientWidth;
-    img.height = svg.clientHeight;
-    // Replace <svg> with <img>
-    svg.parentNode.replaceChild(img, svg);
-  });
+async function divToPDF_slow(div_id) {
+  var div = document.getElementById(div_id)
+  div.style.width = "fit-content"
+  //div.style.overflow = 'visible';
+  //div.style.width = div.scrollWidth + 'px';
+  //div.style.height = div.scrollHeight + 'px';
+  //div.style.backgroundColor = "white"
+  //div.style.border = "3px solid black"
 
-  html2pdf()
-    .set({
-      margin: 0.5,
-      filename: 'figure.pdf',
-      image: {type: 'pdf', quality: 0.7},
-      html2canvas: { 
-          scale: 3, 
-          useCORS: true,
-          svgRendering: true,
-      },
-      jsPDF: {unit: 'in', format: 'letter', orientation: 'portrait'}
+  const innerDivs = div.querySelectorAll('div'); // all divs inside parent
+  console.log(innerDivs);
+  /*innerDivs.forEach((inner_div) => {
+    inner_div.style.visibility = "visible"
+    inner_div.style.overflow = "visible"
+    inner_div.style.width = inner_div.scrollWidth + 'px';
+    inner_div.style.height = inner_div.scrollHeight + 'px';
+  });*/
+
+    // Capture screenshot
+    window.scrollTo(0,0);
+    const canvas = await html2canvas(div, {
+        scrollX: -window.scrollX,
+        scrollY: -window.scrollY,
+        windowWidth: document.documentElement.offsetWidth,
+        windowHeight: document.documentElement.offsetHeight,
+        scale: 2,
+        svgRendering: true,
+        logging: true, 
     })
-    .from(element)
-    .save()
-    .then(() => {
-      $("body").removeClass("wait");
-      //document.body.removeChild(element)
-    })
+    const imageData = canvas.toDataURL("image/png");
+
+    // Create PDF and add image
+    const width = canvas.width;
+    const height = canvas.height;
+    orientation = "portrait"
+    if (width > height) {
+      orientation = "landscape"
+    }
+
+    window.jsPDF = window.jspdf.jsPDF;
+    const pdf = new jsPDF({
+      unit: 'pt',
+      orientation: orientation,
+      format: [height, width] 
+    });
+
+    pdf.addImage(imageData, "PNG", 0, 0, width, height);
+    pdf.save("figure.pdf");
 }
 
 function addHTMLElements(container_div_id, args) {
@@ -405,6 +420,7 @@ function addHTMLElements(container_div_id, args) {
 
   // Button zoom in.
   var button_zoomIn = createActionIcon("fa fa-search-plus")
+  button_zoomIn.id = "button_zoom_in"
   button_zoomIn.addEventListener('click', (event) => {
     var target_div = document.getElementById(event.currentTarget.target_div_id)
     target_div.style.zoom = parseFloat(target_div.style.zoom) + 0.1
@@ -414,6 +430,7 @@ function addHTMLElements(container_div_id, args) {
 
   // Button zoom out.
   var button_zoomOut = createActionIcon("fa fa-search-minus")
+  button_zoomOut.id = "button_zoom_out"
   button_zoomOut.addEventListener('click', (event) => {
     var target_div = document.getElementById(event.currentTarget.target_div_id)
     target_div.style.zoom = parseFloat(target_div.style.zoom) - 0.1
@@ -423,6 +440,7 @@ function addHTMLElements(container_div_id, args) {
 
   // Button zoom reset. 
   var button_zoomReset = createActionIcon("fa fa-expand-arrows-alt")
+  button_zoomReset.id = "button_reset_zoom"
   button_zoomReset.addEventListener('click', (event) => {
     var target_div = document.getElementById(event.currentTarget.target_div_id)
     target_div.style.zoom = DEFAULT_ZOOM
@@ -432,12 +450,15 @@ function addHTMLElements(container_div_id, args) {
 
   // Button download.
   var button_dwl = createActionIcon("fa fa-download")
-  button_dwl.id = "dwl_button"
+  button_dwl.id = "main_dwl_button"
   addInfoBoxToElement(button_dwl, "Export each tree cohort view as a camera-ready PDF figure.",
       bg_color="#0868d2", width=115, margin_left="", position="top", line_height="17px")
   button_dwl.addEventListener('click', (event) => {
-    var target_div = document.getElementById(event.currentTarget.target_div_id)
-    downloadDiv(target_div)
+    regex = /^AML-40.*_tree$/
+    const elements = document.querySelectorAll('[id]');
+    svg = Array.from(elements).find(el => regex.test(el.id));
+    //svg = document.getElementById("tree_cohort")
+    divToPDF("tree_cohort")//svg.id)
   })
   button_dwl.target_div_id = tree_cohort_div_id
   outer_div.appendChild(button_dwl)
@@ -592,6 +613,8 @@ function addHTMLElements(container_div_id, args) {
   tree_info_div.style.fontSize = "13px"
   tree_info_div.style.position = "fixed"
   tree_info_div.style.width = "max(24%, 300px)" 
+  //tree_cohort_div.style.maxWidth = window.innerWidth - tree_info_div.offsetWidth + "px"
+  tree_cohort_div.style.flexShrink = 0
   tree_info_div.style.marginTop = "10px"
 
   tree_info_div.style.padding = "15px"
@@ -1086,6 +1109,14 @@ function createInfoTooltip() {
   return div
 }
 
+function getTextWidth(text, font_size) {
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  context.font = font_size + "px sans-serif"
+  const metrics = context.measureText(text);
+  return metrics.width;
+}
+
 ////////////////////////////
 //// Populate tree info ////
 ////////////////////////////
@@ -1249,6 +1280,20 @@ function showTreeInfo(sample_name, args) {
   var tree_box_div = createDivContainer(tree_box_id)
   tree_box_div.style.direction = "ltr"
   tree_box_div.style.display = 'block'
+  tree_box_div.style.width = "fit-content"
+  tree_box_div.style.margin = "auto"
+
+  var button_dwl = createActionIcon("fa fa-download", id=null, color="black")
+  button_dwl.id = "tree_dwl_button"
+  addInfoBoxToElement(button_dwl, "Download tree figure.&lrm;",
+      bg_color="#353935", width=75, margin_left="", position="left", line_height="17px")
+  button_dwl.textAlign = "right"
+  button_dwl.addEventListener('click', (event) => {
+    divToPDF(event.currentTarget.target_div_id)
+  })
+  button_dwl.target_div_id = tree_box_id
+  tree_info_div.appendChild(button_dwl)
+
   tree_info_div.appendChild(tree_box_div)
   appendLineBreak(tree_info_div)
   tree_div_height = Math.min(400, 2*screen.height/3)
@@ -2048,6 +2093,7 @@ function populateHeatmapView_slow(args) {
   data = args.data
   distances = data["pairwise_tree_distances"]
   sample_list = Object.keys(data["trees"])
+  num_samples = sample_list.length
   clusters = [sample_list]
   if ("clusters" in data) {
     clusters = args.data["clusters"]
@@ -2072,9 +2118,20 @@ function populateHeatmapView_slow(args) {
     .style("visibility", "hidden")
     .style("display", "none")
 
-  var margin = {top: 30, right: 80, bottom: 80, left: 50},
-    width = 600 - margin.left - margin.right,
-    height = 600 - margin.top - margin.bottom;
+  actual_height = window.innerHeight - div_tree_cohort.getBoundingClientRect().top
+  font_size = actual_height / num_samples
+
+  let max_text_width = 0;
+  sample_list.forEach(text => {
+    const width = getTextWidth(text, font_size);
+    if (width > max_text_width) {
+      max_text_width = width;
+    }
+  });
+
+  var margin = {top: 30, right: 80, bottom: 80+max_text_width, left: 50+max_text_width},
+    width = actual_height - margin.left - margin.right,
+    height = actual_height - margin.top - margin.bottom;
 
   var svg = d3.select("#" + tree_cohort_div_id)
     .append("svg")
@@ -2092,9 +2149,10 @@ function populateHeatmapView_slow(args) {
     .attr("transform", "translate(0," + height + ")")
     .call(d3.axisBottom(x))
     .selectAll("text")
+      .attr("id", "heatmap_x_label")
       .attr("transform", "translate(-10,10)rotate(-90)")
       .style("text-anchor", "end")
-      .style("font-size", 6)
+      .style("font-size", font_size)
       .style("cursor", "pointer")
       .on("click", function(d){
         showTreeInfo(d, args)
@@ -2108,7 +2166,10 @@ function populateHeatmapView_slow(args) {
   svg.append("g")
     .call(d3.axisLeft(y))
     .selectAll("text")
-      .style("font-size", 6)
+      .attr("id", function(d){
+        return d + "_label"
+      })
+      .style("font-size", font_size)
       .style("cursor", "pointer")
       .on("click", function(d){
         showTreeInfo(d, args)
@@ -2245,6 +2306,11 @@ function populateHeatmapView_slow(args) {
       .data(distances)
       .enter()
       .append("rect")
+        .attr("id", function(d) {
+          if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1]["size"] > 1) {
+            return "rect_" + cluster_starts[d.sample_1]["cluster_idx"]
+          }
+        })
         .attr("x", function(d) {
           if (d.sample_1 in cluster_starts && d.sample_1 == d.sample_2 && cluster_starts[d.sample_1]["size"] > 1) {
             return x(d.sample_1)
@@ -2459,8 +2525,9 @@ function populate2DView_slow(args) {
 
   // Render the plot.
   var margin = {top: 30, right: 80, bottom: 80, left: 50},
-    width = 600 - margin.left - margin.right,
-    height = 600 - margin.top - margin.bottom;
+    actual_height = window.innerHeight - div_tree_cohort.getBoundingClientRect().top
+    width = actual_height - margin.left - margin.right,
+    height = actual_height - margin.top - margin.bottom;
 
   var svg = d3.select("#" + tree_cohort_div_id)
   .append("svg")
@@ -2504,6 +2571,7 @@ function populate2DView_slow(args) {
     .data(point_map)
     .enter()
     .append("circle")
+      .attr("id", function (d) {return "point_" + d.sample_name})
       .attr("cx", function (d) { return x(d.x); } )
       .attr("cy", function (d) { return y(d.y); } )
       .attr("r", 6)
@@ -2546,6 +2614,23 @@ function populate2DView_slow(args) {
       div = document.getElementById("outer_div_2d")
       div.style.display = "none"
     })
+
+    // Add X axis label:
+    svg.append("text")
+      .attr("text-anchor", "end")
+      .attr("x", width / 2 + 30)
+      .attr("y", height + margin.top + 20)
+      .style("font-size", 11)
+      .text("MDS_1");
+
+    // Y axis label:
+    svg.append("text")
+      .attr("text-anchor", "end")
+      .attr("transform", "rotate(-90)")
+      .attr("y", -margin.left + 10)
+      .attr("x", -height / 2 + margin.top + 30)
+      .style("font-size", 11)
+      .text("MDS_2")
 }
 
 ////////// Help functions display tree ///////////
@@ -2630,8 +2715,10 @@ function displayTree(div_id, tree_label, tree_data, target_gene,
 
   svg.attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
+    .attr("id", div_id + "_svg")
     .style("display", "block")
     .style("margin", "auto")
+    
 
   var g = svg.append("g")
           .attr("transform",
