@@ -33,7 +33,7 @@ OncotreeVIS can be used as follows:
 $ python scripts/DGIdb/dgidb_query.py
 ```
 <br/>
-The expected input is a JSON file with the following key values:<br/>
+The expected input is a JSON file with the following key values:<br/><br/>
 
 | Key      | Data structure |
 | ----------- | ----------- |
