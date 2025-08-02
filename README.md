@@ -19,7 +19,7 @@
 
 ## Video Tutorial
 
-[![Watch the video](./docs/poster/poster.png)](https://youtu.be/mMFuwF6skaw)
+[![Watch the video](./docs/video_thumbnail.png)](https://youtu.be/mMFuwF6skaw)
 
 
 ## Usage
