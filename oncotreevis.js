@@ -366,7 +366,7 @@ async function divToPDF_slow(div_id) {
   recover_width_style = div.style.width
 
   const container = document.createElement("div");
-  container.style.display = "flex"
+  container.style.display = "inline-block"
   container.style.flexBasis = "100%"
   container.style.minWidth = div.style.width
   container.style.flexWrap = "wrap"
@@ -386,6 +386,7 @@ async function divToPDF_slow(div_id) {
     rect.setAttribute("height", "100%");
     rect.setAttribute("fill", getComputedStyle(svg.parentElement).backgroundColor);
     clone_svg.prepend(rect);
+    clone_svg.style.display = "inline-block"
     container.appendChild(clone_svg); 
   });
 
@@ -420,8 +421,8 @@ async function divToPDF_slow(div_id) {
     format: [height, width] 
   });
 
-  pdf.addImage(imageData, "PNG", 0, 0, width, height);
-  pdf.save("figure.pdf");
+  await pdf.addImage(imageData, "PNG", 0, 0, width, height);
+  await pdf.save("figure.pdf");
 }
 
 function addHTMLElements(container_div_id, args) {
