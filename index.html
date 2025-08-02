@@ -62,16 +62,6 @@
 <div width=100% id="container"> </div>
 </div>
 
-<!--
-<div id="capture" style="background: #eee; padding: 20px;">
-  <svg width="400" height="200" viewBox="0 0 400 200">
-    <circle cx="100" cy="100" r="80" fill="blue" />
-  </svg>
-  <canvas id="myCanvas" width="300" height="150" style="background: red;"></canvas>
-  <div style="width: 500px; height: 300px; background: lightgreen;">Some long content</div>
-</div>
--->
-
 <script>
 function load() {
 
@@ -100,7 +90,7 @@ function load() {
 
 <script>
 datasets = {
-    "[clustered] 153 AML point mutation trees (Morita et al. 2020)": {"data": data_aml_morita},
+    "[clustered] 123 AML point mutation trees (Morita et al. 2020)": {"data": data_aml_morita},
     "[clustered] 43 tumor evolution trees (Noble et al. 2022)": {"data": data_noble2022},
     "[clustered] 137 non-small cell lung cancer point mutation trees (TRACERx, Jamal-Hanjani et al. 2017)": {"data": data_tracerx_lung},
     "[clustered] 4,843 alternative mutation trees for 126 non-small cell lung metastatic cancer point patients (TRACERx421, Al Bakir et al. 2023)": {"data": data_tracerx421},
@@ -382,6 +372,7 @@ setTimeout(() => {
   });
 
   // Page.
+  waitForElement(/^AML-07-002_/, (el) => {});
   tree_div = document.querySelector('[id^="AML-07-002_"]')
   tree_div_id = tree_div.id
   tour.addStep({
@@ -738,7 +729,10 @@ setTimeout(() => {
       },
       {
         text: "Next",
-        action: tour.next,
+        action: function() {
+          window.scrollTo(0,0) //{top: 0, behavior: 'smooth'});
+          tour.next();    
+        },
         classes: "mui-btn"
       }
     ],
@@ -787,7 +781,7 @@ setTimeout(() => {
       {
         text: "Next",
         action: tour.next,
-        classes: "mui-btn"
+        classes: "mui-btn",
       }
     ],
     popperOptions: {
@@ -945,14 +939,6 @@ setTimeout(() => {
     scrollTo: {
       behavior: 'smooth',
       block: 'center',
-    },
-    when: {
-      show: () => {
-        const button = document.querySelector('#point_AML-90-001');
-        if (button) {
-          button.click();
-        }
-      }
     },
     buttons: [
       {
@@ -1186,7 +1172,9 @@ setTimeout(() => {
 
   tour.on('cancel', () => {
     oncotreeVIS(data, "container")
+    document.body.className = '';
   });
 }, 200);
+
 </script>
 </body>

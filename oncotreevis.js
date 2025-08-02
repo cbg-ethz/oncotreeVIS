@@ -5,7 +5,7 @@ function async_func(input, callback) {
   setTimeout(function () {
     callback(input);
     $("body").removeClass("wait");
-  }, 0);
+  }, 100);
   $("body").addClass("wait");
 }     
     
@@ -357,59 +357,71 @@ function createActionIcon(icon_class, id=null, color="#0878d0") {
   return button
 }
 
-
 function divToPDF(args) {
   async_func(args, divToPDF_slow)
 }
 
 async function divToPDF_slow(div_id) {
   var div = document.getElementById(div_id)
-  div.style.width = "fit-content"
-  //div.style.overflow = 'visible';
-  //div.style.width = div.scrollWidth + 'px';
-  //div.style.height = div.scrollHeight + 'px';
-  //div.style.backgroundColor = "white"
-  //div.style.border = "3px solid black"
+  recover_width_style = div.style.width
 
-  const innerDivs = div.querySelectorAll('div'); // all divs inside parent
-  console.log(innerDivs);
-  /*innerDivs.forEach((inner_div) => {
-    inner_div.style.visibility = "visible"
-    inner_div.style.overflow = "visible"
-    inner_div.style.width = inner_div.scrollWidth + 'px';
-    inner_div.style.height = inner_div.scrollHeight + 'px';
-  });*/
+  const container = document.createElement("div");
+  container.style.display = "flex"
+  container.style.flexBasis = "100%"
+  container.style.minWidth = div.style.width
+  container.style.flexWrap = "wrap"
+  container.style.justifyContent = "flex-start"
+  container.style.width = "fit-content"
+  container.style.overflow = "visible"
+  document.body.appendChild(container);
 
-    // Capture screenshot
-    window.scrollTo(0,0);
-    const canvas = await html2canvas(div, {
-        scrollX: -window.scrollX,
-        scrollY: -window.scrollY,
-        windowWidth: document.documentElement.offsetWidth,
-        windowHeight: document.documentElement.offsetHeight,
-        scale: 2,
-        svgRendering: true,
-        logging: true, 
-    })
-    const imageData = canvas.toDataURL("image/png");
+  svgs = div.querySelectorAll("svg")
+  if (svgs.length == 1) {
+    div.style.width = "fit-content"
+  }
+  svgs.forEach(svg => {
+    clone_svg = svg.cloneNode(true)
+    rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("width", "100%");
+    rect.setAttribute("height", "100%");
+    rect.setAttribute("fill", getComputedStyle(svg.parentElement).backgroundColor);
+    clone_svg.prepend(rect);
+    container.appendChild(clone_svg); 
+  });
 
-    // Create PDF and add image
-    const width = canvas.width;
-    const height = canvas.height;
-    orientation = "portrait"
-    if (width > height) {
-      orientation = "landscape"
-    }
+  // Capture screenshot
+  window.scrollTo(0,0);
+  canvas = await html2canvas(container, {
+    scrollX: -window.scrollX,
+    scrollY: -window.scrollY,
+    windowWidth: document.documentElement.offsetWidth,
+    windowHeight: document.documentElement.offsetHeight,
+    scale: 2,
+    svgRendering: true,
+    logging: true, 
+  })
 
-    window.jsPDF = window.jspdf.jsPDF;
-    const pdf = new jsPDF({
-      unit: 'pt',
-      orientation: orientation,
-      format: [height, width] 
-    });
+  imageData = canvas.toDataURL("image/png");
+  container.remove()
+  div.style.width = recover_width_style
 
-    pdf.addImage(imageData, "PNG", 0, 0, width, height);
-    pdf.save("figure.pdf");
+  // Create PDF and add image
+  const width = canvas.width;
+  const height = canvas.height;
+  orientation = "portrait"
+  if (width > height) {
+    orientation = "landscape"
+  }
+
+  window.jsPDF = window.jspdf.jsPDF;
+  pdf = new jsPDF({
+    unit: 'pt',
+    orientation: orientation,
+    format: [height, width] 
+  });
+
+  pdf.addImage(imageData, "PNG", 0, 0, width, height);
+  pdf.save("figure.pdf");
 }
 
 function addHTMLElements(container_div_id, args) {
@@ -454,11 +466,7 @@ function addHTMLElements(container_div_id, args) {
   addInfoBoxToElement(button_dwl, "Export each tree cohort view as a camera-ready PDF figure.",
       bg_color="#0868d2", width=115, margin_left="", position="top", line_height="17px")
   button_dwl.addEventListener('click', (event) => {
-    regex = /^AML-40.*_tree$/
-    const elements = document.querySelectorAll('[id]');
-    svg = Array.from(elements).find(el => regex.test(el.id));
-    //svg = document.getElementById("tree_cohort")
-    divToPDF("tree_cohort")//svg.id)
+    divToPDF(event.currentTarget.target_div_id)
   })
   button_dwl.target_div_id = tree_cohort_div_id
   outer_div.appendChild(button_dwl)
@@ -1285,8 +1293,9 @@ function showTreeInfo(sample_name, args) {
 
   var button_dwl = createActionIcon("fa fa-download", id=null, color="black")
   button_dwl.id = "tree_dwl_button"
+  button_dwl.style.paddingRight = "30px"
   addInfoBoxToElement(button_dwl, "Download tree figure.&lrm;",
-      bg_color="#353935", width=75, margin_left="", position="left", line_height="17px")
+      bg_color="#353935", width=75, margin_left=-7, position="bottom", line_height="17px")
   button_dwl.textAlign = "right"
   button_dwl.addEventListener('click', (event) => {
     divToPDF(event.currentTarget.target_div_id)
