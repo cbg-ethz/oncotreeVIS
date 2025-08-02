@@ -576,14 +576,14 @@ function addHTMLElements(container_div_id, args) {
 
     // Button remove rectangles.
     var button_removeRect_id = "remove_rect"
-    var button_removeRect = createActionIcon("fa fa-square-o", button_removeRect_id)
+    var button_removeRect = createActionIcon("far fa-square", button_removeRect_id)
     addInfoBoxToElement(button_removeRect, "Highlight / Remove clusters.", 
          bg_color="#0868d2", width=157, margin_left="", position="top", line_height="17px")
     button_removeRect.addEventListener('click', (event) => {
       var this_button = document.getElementById(event.currentTarget.id)
       var state = event.currentTarget.state
-      icon_class_state_0 = "fa fa-square-o"
-      icon_class_state_1 = "fa fa-square"
+      icon_class_state_0 = "far fa-square"
+      icon_class_state_1 = "fas fa-square"
       if (state == 0) {
         this_button.innerHTML = this_button.innerHTML.replace(icon_class_state_0, icon_class_state_1)
       } else if (state == 1) {

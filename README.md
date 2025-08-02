@@ -25,8 +25,12 @@
 ## Usage
 
 OncotreeVIS can be used as follows:
-- locally by including the javascript library and calling the oncotreeVIS function with two arguments: the input in json format (<i>see below</i>) and the id of an empty div container;
-- using our <a href=https://cbg-ethz.github.io/oncotreeVIS target=app>web app</a> to visualize predefined datasets or your own in the required format (see below).<br/><br/> 
+- locally by including the javascript library and calling the oncotreeVIS function with two arguments: the input in JSON object format (<i>see required keys below</i>) and the id of an empty div container;
+- using our <a href=https://cbg-ethz.github.io/oncotreeVIS target=app>web app</a> to visualize predefined datasets or your own in the required format (see below).<br/><br/>
+- we use a frozen version of the DGIdb stored in JSON format. In order to update it, use the following script:
+```
+$ scripts/DGIdb/dgidb_query.py
+```
 
 The expected input is a JSON file with the following key values:<br/>
 
@@ -38,3 +42,83 @@ The expected input is a JSON file with the following key values:<br/>
 | highlighted_genes | Styles used: color code or keywords "bold", "italic", "underline".<br/><br/>Example:<br/>{"JAK2": "bold", "PTEN": "italic", "TP53": "#b4a7d6", "FLT3-ITD": "lightsteelblue"} |
 
 <br/>The JSON files used for the predefined datasets are available on github in the <i>data</i> folder.
+
+## Usage example
+
+```
+<!DOCTYPE html>
+
+<head>
+<!-- Load CSS files -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link href="dependencies/css/bootstrap.min.css" rel="stylesheet">
+<link href="dependencies/css/style.css" rel="stylesheet">
+<!-- Load javascript libraries -->
+<script src="dependencies/js/jquery.min.js"></script>
+<script src="dependencies/js/d3.v4.min.js"></script>
+<script src="dependencies/js/d3-selection-multi.v1.js"></script>
+<script src="dependencies/js/tinycolor.js"></script>
+<script src="dependencies/js/numeric.js"></script>
+<script src="dependencies/js/svd.js"></script>
+<script src="dependencies/js/jquery.lazyload-any.js"></script>
+<script src="dependencies/js/jspdf.umd.min.js"></script>
+<script src="dependencies/js/html2canvas.min.js"></script>
+
+<script src="oncotreevis.js"></script>
+<script src="dgidb_query_response.js"></script>
+</head>
+
+<body style="margin-top: 5px; margin-left: 5px; margin-right: 5px;">
+  <div width=100% id="container" style="margin-top: 130px;"> </div>
+
+<script>
+
+data = JSON.parse(`{
+  "trees": {
+    "AML-03-001": {
+      "tree": {
+        "node_id": 0,
+        "matching_label": 0,
+        "children": [
+          {
+            "node_id": 407,
+            "matching_label": 14,
+            "size_percent": 0.228,
+            "gene_events": {
+              "FLT3-ITD": {
+                "mutation": ""
+              }
+            },
+            "children": [
+              {
+                "node_id": 408,
+                "matching_label": 5,
+                "size_percent": 0.772,
+                "gene_events": {
+                  "NPM1": {
+                    "mutation": "p.L287fs"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "metadata": {
+        "Chemo": "No",
+        "Gender": "Female",
+        "VitalStatus": "Dead NOS",
+        "age": 59,
+        "Diagnosis": "AML",
+        "Response": "CR"
+      }
+    }
+  }
+}`);
+
+oncotreeVIS(data, "container")
+
+</script>
+</body>
+
+```
