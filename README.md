@@ -27,11 +27,12 @@
 OncotreeVIS can be used as follows:
 - locally by including the javascript library and calling the oncotreeVIS function with two arguments: the input in JSON object format (<i>see required keys below</i>) and the id of an empty div container;
 - using our <a href=https://cbg-ethz.github.io/oncotreeVIS target=app>web app</a> to visualize predefined datasets or your own in the required format (see below);
+- the color codes for the clusters and tree nodes are hardcoded at <a href="https://github.com/cbg-ethz/oncotreeVIS/blob/main/oncotreevis.js#L826">oncotreevis.js#L826</a>. The colors used in the metadata legend are generated dynamically using our ColorGenerator implemented at <a href="https://github.com/cbg-ethz/oncotreeVIS/blob/main/oncotreevis.js#L1936">oncotreevis.js#L1936</a>;
 - we use a frozen version of the DGIdb stored in JSON format. In order to update it, use the following script:
 ```
 $ python scripts/DGIdb/dgidb_query.py
 ```
-- the color codes for the clusters and tree nodes are hardcoded at <a href="https://github.com/cbg-ethz/oncotreeVIS/blob/main/oncotreevis.js#L826">oncotreevis.js#L826</a>. The colors used in the metadata legend are generated dynamically using our ColorGenerator implemented at <a href="https://github.com/cbg-ethz/oncotreeVIS/blob/main/oncotreevis.js#L1936">oncotreevis.js#L1936</a>.<br/><br/> 
+<br/><br/> 
 
 The expected input is a JSON file with the following key values:<br/>
 
