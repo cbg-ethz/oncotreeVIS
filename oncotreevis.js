@@ -610,7 +610,7 @@ function addHTMLElements(container_div_id, args) {
     umap_view_button.id = "umap_view_button"
     umap_view_button.addEventListener('click', ()=>{ populate2DView(args); })
     umap_view_button.innerHTML = '<i style="font-size:19px" class="fa fa-dot-circle-o"></i> 2D VIEW'
-    addInfoBoxToElement(umap_view_button, "Show a 2D projection of the tree points" +
+    addInfoBoxToElement(umap_view_button, "Show a 2D projection of the tree points " +
         "based on a given tree pairwise distances, using Multidimensional scaling (MDS).",
         bg_color="#0868d2", width=190, margin_left="", position="top", line_height="17px")
     appendSpace(outer_div)
