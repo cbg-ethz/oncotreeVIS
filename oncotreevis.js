@@ -362,6 +362,9 @@ function divToPDF(args) {
 }
 
 async function divToPDF_slow(div_id) {
+  
+  max_jspdf_length = 14400
+
   var div = document.getElementById(div_id)
   recover_width_style = div.style.width
 
@@ -369,9 +372,11 @@ async function divToPDF_slow(div_id) {
   container.style.display = "inline-block"
   container.style.flexBasis = "100%"
   container.style.minWidth = div.style.width
+  container.style.maxWidth = max_jspdf_length 
+  container.style.maxWidth = max_jspdf_length
   container.style.flexWrap = "wrap"
   container.style.justifyContent = "flex-start"
-  container.style.width = "fit-content"
+  container.style.width = "fit-content(100%)"
   container.style.overflow = "visible"
   document.body.appendChild(container);
 
@@ -421,6 +426,11 @@ async function divToPDF_slow(div_id) {
     format: [height, width] 
   });
 
+  if (height > max_jspdf_length ||  width > max_jspdf_length) {
+    alert("Height or width of the PDF exceeds " + max_jspdf_length + "px. Consider expanding the size " +
+        "of the browser window, or reducing the number of trees. ")
+  }
+
   await pdf.addImage(imageData, "PNG", 0, 0, width, height);
   await pdf.save("figure.pdf");
 }
@@ -467,9 +477,14 @@ function addHTMLElements(container_div_id, args) {
   addInfoBoxToElement(button_dwl, "Export each tree cohort view as a camera-ready PDF figure.",
       bg_color="#0868d2", width=115, margin_left="", position="top", line_height="17px")
   button_dwl.addEventListener('click', (event) => {
-    divToPDF(event.currentTarget.target_div_id)
+    if (event.currentTarget.num_trees > 200) {
+      alert("jsPDF can render a limited cavas size. We limit the number of trees to 150.");
+    } else {
+      divToPDF(event.currentTarget.target_div_id)
+    }
   })
   button_dwl.target_div_id = tree_cohort_div_id
+  button_dwl.num_trees = mapSize(args.data["trees"])
   outer_div.appendChild(button_dwl)
 
   // Trev view buttons.
